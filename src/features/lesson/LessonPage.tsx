@@ -1,0 +1,230 @@
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import type { Lesson, LessonStep, LessonStepType } from '../../content/schema';
+import { useAudio } from '../../audio/useAudio';
+import type { NoteName } from '../../domain/music/types';
+import { parseNote } from '../../domain/music/pitch';
+import { useProgressStore } from '../../stores/useProgressStore';
+import { ChordBuilder } from './components/ChordBuilder';
+import { FeedbackSheet } from './components/FeedbackSheet';
+import { PianoKeyboard } from './components/PianoKeyboard';
+import { RhythmGrid, type RhythmValue } from './components/RhythmGrid';
+import { ScaleBuilder } from './components/ScaleBuilder';
+import {
+  createLessonSession,
+  requestHint,
+  scoreLesson,
+  submitAnswer,
+  type FeedbackResult,
+  type LessonSession,
+} from './lessonEngine';
+
+type StepProps = {
+  step: LessonStep;
+  answer: unknown;
+  setAnswer(answer: unknown): void;
+  playMidi(midi: number): void;
+};
+
+const midiLabel = (midi: number) => {
+  const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  return `${names[midi % 12]}${Math.floor(midi / 12) - 1}`;
+};
+
+function KeyboardStep({ step, setAnswer, playMidi }: StepProps) {
+  const [selected, setSelected] = useState<number[]>([]);
+  return (
+    <PianoKeyboard
+      onChange={(midis) => {
+        setSelected(midis);
+        const labels = midis.map(midiLabel);
+        setAnswer('target' in step.config ? labels.at(-1) : labels);
+      }}
+      onPlay={playMidi}
+      value={selected}
+    />
+  );
+}
+
+function RhythmStep({ answer, setAnswer }: StepProps) {
+  return <RhythmGrid onChange={setAnswer} value={(answer as Array<RhythmValue | null> | undefined) ?? []} />;
+}
+
+function RhythmTapStep({ step, answer, setAnswer }: StepProps) {
+  const taps = Array.isArray(answer) ? answer : [];
+  const target = Array.isArray(step.config.pattern) ? step.config.pattern : [];
+  const tap = () => setAnswer([...taps, 1].slice(0, target.length));
+  return (
+    <button
+      aria-label={`打拍，${taps.length} / ${target.length}`}
+      className="mx-auto grid size-48 place-items-center rounded-full border-4 border-[#102a43] bg-[#e7c55f] font-serif text-3xl font-bold text-[#102a43] shadow-[0_12px_0_#102a43] active:translate-y-2 active:shadow-[0_4px_0_#102a43]"
+      onClick={tap}
+      type="button"
+    >拍</button>
+  );
+}
+
+function ScaleStep({ answer, setAnswer }: StepProps) {
+  return <ScaleBuilder onChange={setAnswer} value={(answer as NoteName[] | undefined) ?? []} />;
+}
+
+function ChordStep({ answer, setAnswer }: StepProps) {
+  return <ChordBuilder onChange={setAnswer} value={(answer as NoteName[] | undefined) ?? []} />;
+}
+
+function ChoiceStep({ step, answer, setAnswer }: StepProps) {
+  const choices = Array.isArray(step.config.choices) ? step.config.choices : [];
+  return (
+    <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3" role="group" aria-label="可选答案">
+      {choices.map((choice) => (
+        <button
+          aria-pressed={answer === choice}
+          className="rounded-full border-2 border-[#102a43] bg-[#fffaf0] px-6 py-3 font-bold text-[#102a43] aria-pressed:bg-[#e7c55f]"
+          key={String(choice)}
+          onClick={() => setAnswer(choice)}
+          type="button"
+        >{String(choice)}</button>
+      ))}
+    </div>
+  );
+}
+
+function DemonstrationStep({ step, setAnswer, playMidi }: StepProps) {
+  const source = (step.config.sequence ?? step.config.notes ?? step.config.arpeggio) as string[] | undefined;
+  const demonstrate = () => {
+    source?.forEach((note) => playMidi(parseNote(note).midi));
+    setAnswer(source ?? true);
+  };
+  return (
+    <button className="mx-auto block rounded-full bg-[#102a43] px-7 py-4 font-bold text-[#fff4d6]" onClick={demonstrate} type="button">
+      播放示范
+    </button>
+  );
+}
+
+function ExplainStep({ setAnswer }: StepProps) {
+  return (
+    <button className="mx-auto block rounded-full border-2 border-[#102a43] bg-[#fffaf0] px-7 py-4 font-bold text-[#102a43]" onClick={() => setAnswer(true)} type="button">
+      我看清了
+    </button>
+  );
+}
+
+export const stepRenderers: Record<LessonStepType, ComponentType<StepProps>> = {
+  listen: DemonstrationStep,
+  explain: ExplainStep,
+  keyboard: KeyboardStep,
+  choice: ChoiceStep,
+  rhythmTap: RhythmTapStep,
+  rhythmBuild: RhythmStep,
+  scaleBuild: ScaleStep,
+  chordBuild: ChordStep,
+  studioTransfer: DemonstrationStep,
+};
+
+function storageKey(lessonId: string) {
+  return `musicstudy:lesson:${lessonId}`;
+}
+
+function restoreSession(lesson: Lesson): LessonSession {
+  const raw = localStorage.getItem(storageKey(lesson.id));
+  if (!raw) return createLessonSession(lesson);
+  try {
+    const restored = JSON.parse(raw) as LessonSession;
+    return restored.lessonId === lesson.id ? { ...restored, steps: lesson.steps } : createLessonSession(lesson);
+  } catch {
+    return createLessonSession(lesson);
+  }
+}
+
+export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void }) {
+  const { engine, status, unlock } = useAudio();
+  const completeLesson = useProgressStore((state) => state.completeLesson);
+  const recordAttempt = useProgressStore((state) => state.recordAttempt);
+  const [session, setSession] = useState(() => restoreSession(lesson));
+  const [answer, setAnswer] = useState<unknown>();
+  const [feedback, setFeedback] = useState<FeedbackResult>();
+  const step = lesson.steps[session.stepIndex];
+  const progress = Math.min(100, ((session.stepIndex + 1) / lesson.steps.length) * 100);
+  const Renderer = step ? stepRenderers[step.type] : null;
+
+  useEffect(() => {
+    if (session.stepIndex < lesson.steps.length) {
+      localStorage.setItem(storageKey(lesson.id), JSON.stringify(session));
+    }
+  }, [lesson.id, lesson.steps.length, session]);
+
+  const score = useMemo(() => scoreLesson(session), [session]);
+
+  const playMidi = async (midi: number) => {
+    if (status !== 'ready') await unlock();
+    engine.playMidi(midi);
+  };
+
+  const submit = () => {
+    if (!step || answer === undefined) return;
+    const result = submitAnswer(session, answer);
+    setSession(result.session);
+    setFeedback(result.feedback);
+    void recordAttempt({
+      lessonId: lesson.id,
+      skillIds: step.skillIds,
+      correct: result.feedback.correct,
+      hints: session.hintLevel,
+      ...(result.feedback.errorCode ? { errorCode: result.feedback.errorCode } : {}),
+    });
+  };
+
+  const continueLesson = async () => {
+    setFeedback(undefined);
+    setAnswer(undefined);
+    if (session.stepIndex < lesson.steps.length) return;
+    const result = scoreLesson(session);
+    await completeLesson({
+      lessonId: lesson.id,
+      score: result.score,
+      hints: session.hintsUsed,
+      completedVariant: session.completedVariant,
+    });
+    localStorage.removeItem(storageKey(lesson.id));
+  };
+
+  return (
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_85%_10%,rgba(231,197,95,.28),transparent_28%),linear-gradient(145deg,#f6ecd7,#fffaf0)] text-[#102a43]">
+      <header className="mx-auto flex max-w-6xl items-center gap-5 px-5 py-5">
+        <button className="rounded-full border-2 border-[#102a43] px-4 py-2 font-bold" onClick={onExit} type="button">退出课程</button>
+        <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#102a43]/15" role="progressbar" aria-label="课程进度" aria-valuenow={progress}>
+          <div className="h-full rounded-full bg-[#4eaa94] transition-[width] duration-300" style={{ width: `${progress}%` }} />
+        </div>
+        <strong>{Math.min(session.stepIndex + 1, lesson.steps.length)} / {lesson.steps.length}</strong>
+      </header>
+
+      {step && Renderer ? (
+        <section className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl flex-col px-5 pb-32 pt-8">
+          <h1 className="mx-auto mb-12 max-w-4xl text-center font-serif text-[clamp(2rem,4vw,4.5rem)] font-bold leading-tight">{step.prompt}</h1>
+          <div className="my-auto">
+            <Renderer answer={answer} playMidi={(midi) => void playMidi(midi)} setAnswer={setAnswer} step={step} />
+          </div>
+          {session.requiresVariant && <p className="mt-8 text-center font-bold text-[#ef765d]">需要一个变式</p>}
+          {session.hintLevel > 0 && <p className="mt-4 text-center">提示 {session.hintLevel}：{Object.values(step.feedback)[0] ?? '放慢速度，再观察一次。'}</p>}
+          <footer className="mt-10 flex justify-center gap-3">
+            <button className="rounded-full border-2 border-[#102a43] px-6 py-3 font-bold" onClick={() => setSession(requestHint(session))} type="button">提示</button>
+            <button className="rounded-full bg-[#102a43] px-8 py-3 font-bold text-[#fff4d6] disabled:opacity-40" disabled={answer === undefined} onClick={submit} type="button">提交答案</button>
+          </footer>
+        </section>
+      ) : (
+        <section className="mx-auto grid min-h-[70vh] max-w-3xl place-items-center px-5 text-center">
+          <div><h1 className="font-serif text-5xl font-bold">课程完成</h1><p className="text-xl">{score.score} 分 · {score.stars} 星</p></div>
+        </section>
+      )}
+
+      <FeedbackSheet
+        correct={feedback?.correct ?? false}
+        level={feedback?.level ?? 0}
+        message={feedback?.message}
+        onContinue={() => void continueLesson()}
+        onDismiss={() => setFeedback(undefined)}
+        open={feedback !== undefined}
+      />
+    </main>
+  );
+}
