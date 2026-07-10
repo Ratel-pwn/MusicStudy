@@ -6,4 +6,4 @@ coverage/
 .DS_Store
 *.log
 .superpowers/
-
+.worktrees/
