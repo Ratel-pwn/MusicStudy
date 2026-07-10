@@ -1,6 +1,9 @@
 import type { Lesson } from '../../content/schema';
 import {
   createLessonSession,
+  getCurrentStep,
+  getHint,
+  getExpectedAnswer,
   requestHint,
   scoreLesson,
   submitAnswer,
@@ -84,7 +87,7 @@ describe('lesson engine', () => {
 
   it('uses music domain builders when checking scales', () => {
     const firstStepDone = submitAnswer(createLessonSession(lesson), 'C4').session;
-    const result = submitAnswer(firstStepDone, ['C', 'D', 'E', 'F', 'G', 'A', 'B']);
+    const result = submitAnswer(firstStepDone, ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C']);
 
     expect(result.feedback.correct).toBe(true);
     expect(result.session.stepIndex).toBe(2);
@@ -93,12 +96,12 @@ describe('lesson engine', () => {
   it('scores a clean completion above a hinted, error-prone completion', () => {
     let clean = createLessonSession(lesson);
     clean = submitAnswer(clean, 'C4').session;
-    clean = submitAnswer(clean, ['C', 'D', 'E', 'F', 'G', 'A', 'B']).session;
+    clean = submitAnswer(clean, ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C']).session;
 
     let assisted = requestHint(createLessonSession(lesson));
     assisted = submitAnswer(assisted, 'D4').session;
     assisted = submitAnswer(assisted, 'C4').session;
-    assisted = submitAnswer(assisted, ['C', 'D', 'E', 'F', 'G', 'A', 'B']).session;
+    assisted = submitAnswer(assisted, ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C']).session;
 
     expect(scoreLesson(clean)).toEqual({ score: 100, stars: 3 });
     expect(scoreLesson(assisted).score).toBeLessThan(100);
@@ -115,8 +118,37 @@ describe('lesson engine', () => {
       ],
     };
     let session = submitAnswer(createLessonSession(contentLesson), ['C4', 'E4', 'G4']).session;
-    session = submitAnswer(session, 'F').session;
+    session = submitAnswer(session, 'E').session;
 
     expect(session.stepIndex).toBe(2);
+  });
+
+  it('requires a different variant answer after three errors', () => {
+    let session = createLessonSession(lesson);
+    session = submitAnswer(session, 'D4').session;
+    session = submitAnswer(session, 'D4').session;
+    session = submitAnswer(session, 'D4').session;
+
+    expect(getCurrentStep(session).id).not.toBe(lesson.steps[0].id);
+    const originalRetry = submitAnswer(session, 'C4').session;
+    expect(originalRetry.stepIndex).toBe(0);
+    expect(originalRetry.completedVariant).toBe(false);
+
+    const variantAnswer = getExpectedAnswer(getCurrentStep(originalRetry));
+    const variantDone = submitAnswer(originalRetry, variantAnswer).session;
+    expect(variantDone.stepIndex).toBe(1);
+    expect(variantDone.completedVariant).toBe(true);
+  });
+
+  it('returns distinct direction, structure, and demonstration hints', () => {
+    let session = createLessonSession(lesson);
+    const hints = [];
+    for (let level = 0; level < 3; level += 1) {
+      session = requestHint(session);
+      hints.push(getHint(session));
+    }
+
+    expect(new Set(hints).size).toBe(3);
+    expect(hints[2]).toContain('C4');
   });
 });

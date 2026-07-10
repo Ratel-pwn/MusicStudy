@@ -1,17 +1,17 @@
 import { useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 
 export type RhythmValue = 'quarter' | 'eighth';
-type RhythmGridProps = { value: Array<RhythmValue | null>; onChange(value: Array<RhythmValue | null>): void };
+type RhythmGridProps = { value: Array<RhythmValue | null>; length?: number; onChange(value: Array<RhythmValue | null>): void };
 
 const palette: Array<{ value: RhythmValue; label: string; glyph: string }> = [
   { value: 'quarter', label: '四分音符', glyph: '♩' },
   { value: 'eighth', label: '八分音符', glyph: '♪' },
 ];
 
-export function RhythmGrid({ value, onChange }: RhythmGridProps) {
+export function RhythmGrid({ value, length = 4, onChange }: RhythmGridProps) {
   const [selected, setSelected] = useState<RhythmValue>('quarter');
   const beatRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const beats = Array.from({ length: 4 }, (_, index) => value[index] ?? null);
+  const beats = Array.from({ length }, (_, index) => value[index] ?? null);
   const place = (index: number, rhythmValue: RhythmValue) => {
     const next = [...beats];
     next[index] = rhythmValue;

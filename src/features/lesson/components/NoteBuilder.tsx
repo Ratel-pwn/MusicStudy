@@ -2,13 +2,14 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { parseNote } from '../../../domain/music/pitch';
 import type { NoteName } from '../../../domain/music/types';
 
-const NOTES: NoteName[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+const DEFAULT_NOTES: NoteName[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
 type NoteBuilderProps = {
   ariaLabel: string;
   value: NoteName[];
   onChange(value: NoteName[]): void;
   maxNotes: number;
+  availableNotes?: NoteName[];
 };
 
 function upwardSemitones(from: NoteName, to: NoteName): number {
@@ -16,7 +17,7 @@ function upwardSemitones(from: NoteName, to: NoteName): number {
   return difference < 0 ? difference + 12 : difference;
 }
 
-export function NoteBuilder({ ariaLabel, value, onChange, maxNotes }: NoteBuilderProps) {
+export function NoteBuilder({ ariaLabel, value, onChange, maxNotes, availableNotes = DEFAULT_NOTES }: NoteBuilderProps) {
   const [notes, setNotes] = useState(value);
   const choices = useRef<Array<HTMLButtonElement | null>>([]);
   useEffect(() => setNotes(value), [value]);
@@ -30,7 +31,7 @@ export function NoteBuilder({ ariaLabel, value, onChange, maxNotes }: NoteBuilde
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
     const direction = event.key === 'ArrowRight' ? 1 : -1;
-    choices.current[(index + direction + NOTES.length) % NOTES.length]?.focus();
+    choices.current[(index + direction + availableNotes.length) % availableNotes.length]?.focus();
   };
 
   return (
@@ -45,7 +46,7 @@ export function NoteBuilder({ ariaLabel, value, onChange, maxNotes }: NoteBuilde
       </div>
       {notes.length > 1 && <p className="mb-5 text-center font-bold text-[#102a43]">{notes[0]} → {notes.at(-1)} · {upwardSemitones(notes[0], notes.at(-1)!)} 半音</p>}
       <div className="flex flex-wrap justify-center gap-3">
-        {NOTES.map((note, index) => (
+        {availableNotes.map((note, index) => (
           <button
             ref={(node) => { choices.current[index] = node; }}
             aria-label={`添加 ${note}`}

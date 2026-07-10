@@ -29,3 +29,9 @@ it('selects a value and places it on a beat with the keyboard', async () => {
   expect(screen.getByRole('button', { name: '第 2 拍，空' })).toHaveFocus();
   expect(onChange).toHaveBeenCalledWith([null, 'eighth', null, null]);
 });
+
+it('renders the requested number of rhythm cells', () => {
+  render(<RhythmGrid length={6} value={[]} onChange={vi.fn()} />);
+
+  expect(screen.getAllByRole('button', { name: /第 \d 拍，空/ })).toHaveLength(6);
+});

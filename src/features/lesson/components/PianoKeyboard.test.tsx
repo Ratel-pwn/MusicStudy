@@ -25,3 +25,11 @@ it('moves across keys and plays the focused note from the keyboard', async () =>
   expect(screen.getByRole('button', { name: 'C#4' })).toHaveFocus();
   expect(onPlay).toHaveBeenCalledWith(61);
 });
+
+it('renders a specified cross-octave MIDI collection', () => {
+  render(<PianoKeyboard midis={[48, 59, 60, 72, 84]} value={[]} onPlay={vi.fn()} onChange={vi.fn()} />);
+
+  ['C3', 'B3', 'C4', 'C5', 'C6'].forEach((name) => {
+    expect(screen.getByRole('button', { name })).toBeInTheDocument();
+  });
+});

@@ -58,6 +58,10 @@ it('completes through the renderer registry and persists the real variant result
 
   await user.click(screen.getByRole('button', { name: 'C4' }));
   await user.click(screen.getByRole('button', { name: '提交答案' }));
+  expect(screen.queryByText('听一次收束')).not.toBeInTheDocument();
+  expect(progress.completeLesson).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: 'C#4' }));
+  await user.click(screen.getByRole('button', { name: '提交答案' }));
   await user.click(screen.getByRole('button', { name: '继续' }));
   expect(screen.getByText('听一次收束')).toBeInTheDocument();
 
