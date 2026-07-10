@@ -19,6 +19,7 @@ export function PianoRoll({ store, track }: PianoRollProps) {
   const selectedNoteId = useStore(store, (state) => state.selectedNoteId);
   const selectedTrack = useStore(store, (state) => state.selectedTrack);
   const selectNote = useStore(store, (state) => state.selectNote);
+  const addNote = useStore(store, (state) => state.addNote);
   const moveNote = useStore(store, (state) => state.moveNote);
   const resizeNote = useStore(store, (state) => state.resizeNote);
   const removeNote = useStore(store, (state) => state.removeNote);
@@ -46,6 +47,21 @@ export function PianoRoll({ store, track }: PianoRollProps) {
     <div className={`piano-roll piano-roll--${track}`} aria-label={`${TRACK_LABELS[track]}钢琴卷帘`}>
       <div className="pitch-ruler" aria-hidden="true">C5<br />C4<br />C3</div>
       <div className="piano-canvas">
+        <div className="piano-add-grid">
+          {Array.from({ length: 32 }, (_, beat) => (
+            <button
+              aria-label={`在第 ${beat + 1} 拍添加${TRACK_LABELS[track]}音符`}
+              key={beat}
+              onClick={() => addNote(track, {
+                midi: track === 'bass' ? 48 : 60,
+                startBeat: beat,
+                durationBeats: 1,
+                velocity: 0.8,
+              })}
+              type="button"
+            />
+          ))}
+        </div>
         {events.map((note) => (
           <button
             aria-label={`${TRACK_LABELS[track]}音符 ${pitchLabel(note.midi)}，位于第 ${note.startBeat + 1} 拍`}

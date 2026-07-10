@@ -72,3 +72,29 @@
 - 无功能阻塞。
 - npm 输出已有的 `sass_binary_site` 配置弃用警告；不影响测试、typecheck 或构建。
 - 按任务要求未接入路由壳；StudioPage 由后续应用路由任务挂载。
+
+## 审查修复（P1 / P2）
+
+### RED
+
+`npm test -- src/features/studio` 新增审查测试后出现 9 个预期失败：
+
+- 空 PianoRoll 找不到 bass / melody 新增入口；
+- ChordLane 每个和弦只写入根音，store 不存在 `replaceChordAtBeat`；
+- `focusedBeat` 初始值为 0，无法区分“无焦点”与第一拍；
+- StudioPage 不存在可见的局部拍点标记。
+
+### GREEN
+
+- PianoRoll 在 32 拍网格中提供原生 button 添加入口，支持鼠标、触控与键盘激活；bass 默认 MIDI 48，melody 默认 C4 / MIDI 60；新增后自动选中并可立即用方向键调整 pitch / startBeat。
+- `replaceChordAtBeat(startBeat, midis)` 在一次 commit 中删除旧和弦并写入完整 triad。C→F 后单次 undo 恢复 C，单次 redo 恢复 F。
+- `focusedBeat` 改为 `number | null`；RuleInspector 可区分 beat 0 和无焦点。
+- StudioPage 在对应轨道上用局部竖线与“已定位：第 N 拍”文字定位，不再闪烁整轨；测试验证 beat 0 为 `left: 0%`，beat 28 为 `left: 87.5%`。
+- autosave、audio、recovery 原测试保持通过。
+
+### 修复后验证
+
+- `npm test -- src/features/studio`：2 files、22 tests，通过。
+- `npm run typecheck`：通过。
+- `npm test`：27 files、142 tests，通过。
+- `npm run build`：通过。

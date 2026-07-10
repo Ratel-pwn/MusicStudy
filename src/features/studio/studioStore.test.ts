@@ -85,6 +85,8 @@ describe('studioStore', () => {
   it('tracks selected notes, the focused track, and the playhead without adding history', () => {
     const store = createStudioStore(initialComposition);
 
+    expect(store.getState().focusedBeat).toBeNull();
+
     store.getState().selectNote('melody', 'note-1');
     store.getState().focusAt('chords', 7.13);
     store.getState().setPlayhead(40);
@@ -96,5 +98,26 @@ describe('studioStore', () => {
       playheadBeat: 32,
       canUndo: false,
     });
+  });
+
+  it('represents a rule focus at beat zero distinctly from no focus', () => {
+    const store = createStudioStore(initialComposition);
+
+    store.getState().focusAt('drums', 0);
+
+    expect(store.getState()).toMatchObject({ selectedTrack: 'drums', focusedBeat: 0 });
+  });
+
+  it('replaces a chord triad atomically so one undo restores the previous chord', () => {
+    const store = createStudioStore(initialComposition);
+    store.getState().replaceChordAtBeat(0, [60, 64, 67]);
+    store.getState().replaceChordAtBeat(0, [65, 69, 72]);
+    expect(store.getState().composition.tracks.chords.map((note) => note.midi)).toEqual([65, 69, 72]);
+
+    store.getState().undo();
+    expect(store.getState().composition.tracks.chords.map((note) => note.midi)).toEqual([60, 64, 67]);
+
+    store.getState().redo();
+    expect(store.getState().composition.tracks.chords.map((note) => note.midi)).toEqual([65, 69, 72]);
   });
 });

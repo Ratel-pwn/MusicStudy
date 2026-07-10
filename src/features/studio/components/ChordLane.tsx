@@ -4,23 +4,21 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { StudioState } from '../studioStore';
 
 const CHORDS = {
-  C: 60,
-  F: 65,
-  G: 67,
-  Am: 69,
+  C: [60, 64, 67],
+  F: [65, 69, 72],
+  G: [67, 71, 74],
+  Am: [69, 72, 76],
 } as const;
 type ChordName = keyof typeof CHORDS;
 
 export function ChordLane({ store }: { store: StoreApi<StudioState> }) {
   const [armedChord, setArmedChord] = useState<ChordName>('C');
   const events = useStore(store, (state) => state.composition.tracks.chords);
-  const addNote = useStore(store, (state) => state.addNote);
-  const removeNote = useStore(store, (state) => state.removeNote);
+  const replaceChordAtBeat = useStore(store, (state) => state.replaceChordAtBeat);
 
   const placeChord = (name: ChordName, bar: number) => {
     const startBeat = bar * 4;
-    events.filter((event) => event.startBeat === startBeat).forEach((event) => removeNote('chords', event.id));
-    addNote('chords', { midi: CHORDS[name], startBeat, durationBeats: 4, velocity: 0.72 });
+    replaceChordAtBeat(startBeat, [...CHORDS[name]]);
   };
 
   const readChord = (event: DragEvent): ChordName => {
@@ -48,7 +46,7 @@ export function ChordLane({ store }: { store: StoreApi<StudioState> }) {
       <div className="chord-lane">
         {Array.from({ length: 8 }, (_, bar) => {
           const event = events.find((candidate) => candidate.startBeat === bar * 4);
-          const chord = event && (Object.entries(CHORDS).find(([, midi]) => midi === event.midi)?.[0] ?? '—');
+          const chord = event && (Object.entries(CHORDS).find(([, midis]) => midis[0] === event.midi)?.[0] ?? '—');
           return (
             <button
               aria-label={`第 ${bar + 1} 小节和弦区`}

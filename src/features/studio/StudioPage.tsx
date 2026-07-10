@@ -119,7 +119,6 @@ export function StudioPage() {
             <section
               className={`track-row track-row--${track.kind}`}
               data-active={selectedTrack === track.kind}
-              data-focused={selectedTrack === track.kind && focusedBeat > 0}
               key={track.kind}
             >
               <button className="track-head" onClick={() => store.getState().setSelectedTrack(track.kind)} type="button">
@@ -130,6 +129,15 @@ export function StudioPage() {
                 {track.kind === 'bass' && <PianoRoll store={store} track="bass" />}
                 {track.kind === 'chords' && <ChordLane store={store} />}
                 {track.kind === 'melody' && <PianoRoll store={store} track="melody" />}
+                {selectedTrack === track.kind && focusedBeat !== null && (
+                  <output
+                    aria-label="规则定位"
+                    className="beat-focus"
+                    style={{ left: `${(focusedBeat / 32) * 100}%` }}
+                  >
+                    <span>已定位：第 {focusedBeat + 1} 拍</span>
+                  </output>
+                )}
               </div>
             </section>
           ))}

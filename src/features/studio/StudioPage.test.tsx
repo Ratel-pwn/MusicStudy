@@ -79,6 +79,27 @@ describe('studio editors', () => {
     expect(store.getState().composition.tracks.melody[0]).toMatchObject({ midi: 65, startBeat: 1.25 });
   });
 
+  it('adds notes to blank bass and melody tracks with pointer and keyboard controls, then moves them', async () => {
+    const user = userEvent.setup();
+    const store = createStudioStore(composition());
+    const { rerender } = render(<PianoRoll store={store} track="bass" />);
+
+    await user.click(screen.getByRole('button', { name: '在第 1 拍添加贝斯音符' }));
+    expect(store.getState().composition.tracks.bass[0]).toMatchObject({ midi: 48, startBeat: 0 });
+    expect(store.getState().selectedNoteId).toBe(store.getState().composition.tracks.bass[0].id);
+
+    rerender(<PianoRoll store={store} track="melody" />);
+    const addMelody = screen.getByRole('button', { name: '在第 2 拍添加旋律音符' });
+    addMelody.focus();
+    await user.keyboard('{Enter}');
+    expect(store.getState().composition.tracks.melody[0]).toMatchObject({ midi: 60, startBeat: 1 });
+
+    const melody = screen.getByRole('button', { name: '旋律音符 C4，位于第 2 拍' });
+    melody.focus();
+    await user.keyboard('{ArrowRight}{ArrowUp}');
+    expect(store.getState().composition.tracks.melody[0]).toMatchObject({ midi: 61, startBeat: 1.25 });
+  });
+
   it.each([
     ['C', 60],
     ['F', 65],
@@ -96,11 +117,10 @@ describe('studio editors', () => {
     fireEvent.dragStart(screen.getByRole('button', { name: `${name} 和弦片段` }), { dataTransfer: transfer });
     fireEvent.drop(screen.getByRole('button', { name: '第 2 小节和弦区' }), { dataTransfer: transfer });
 
-    expect(store.getState().composition.tracks.chords.at(-1)).toMatchObject({
-      midi,
-      startBeat: 4,
-      durationBeats: 4,
-    });
+    const intervals = name === 'Am' ? [0, 3, 7] : [0, 4, 7];
+    expect(store.getState().composition.tracks.chords.filter((note) => note.startBeat === 4)).toEqual(
+      intervals.map((interval) => expect.objectContaining({ midi: midi + interval, durationBeats: 4 })),
+    );
   });
 
   it('controls playback, stop, tempo, and loop position from the transport', async () => {
@@ -210,5 +230,40 @@ describe('StudioPage', () => {
     await user.click(screen.getByRole('button', { name: '在移动端查看和弦轨' }));
 
     expect(localStorage.getItem(STUDIO_TRACK_KEY)).toBe('chords');
+  });
+
+  it('shows a beat-zero marker when a rule suggestion focuses the first beat', async () => {
+    const user = userEvent.setup();
+    render(<StudioPage />);
+
+    await user.click(screen.getByRole('button', { name: /drums track needs at least one event/ }));
+
+    const marker = screen.getByRole('status', { name: '规则定位' });
+    expect(marker).toHaveTextContent('已定位：第 1 拍');
+    expect(marker).toHaveStyle({ left: '0%' });
+  });
+
+  it('moves the visible marker to a nonzero issue beat', async () => {
+    const user = userEvent.setup();
+    const restored = composition({
+      id: 'focus-song',
+      title: '聚焦作品',
+      tracks: {
+        drums: [],
+        bass: [],
+        chords: [{ id: 'c', midi: 60, startBeat: 28, durationBeats: 4, velocity: 0.8 }],
+        melody: [{ id: 'ending', midi: 69, startBeat: 28, durationBeats: 4, velocity: 0.8 }],
+      },
+    });
+    localStorage.setItem(STUDIO_COMPOSITION_KEY, restored.id);
+    repository.get.mockResolvedValue(restored);
+    render(<StudioPage />);
+    await screen.findByDisplayValue('聚焦作品');
+
+    await user.click(await screen.findByRole('button', { name: /The melody must finish on the tonic/ }));
+
+    const marker = screen.getByRole('status', { name: '规则定位' });
+    expect(marker).toHaveTextContent('已定位：第 29 拍');
+    expect(marker).toHaveStyle({ left: '87.5%' });
   });
 });

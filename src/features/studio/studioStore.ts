@@ -13,7 +13,7 @@ export type StudioState = {
   composition: Composition;
   selectedTrack: TrackKind;
   selectedNoteId: string | null;
-  focusedBeat: number;
+  focusedBeat: number | null;
   playheadBeat: number;
   canUndo: boolean;
   canRedo: boolean;
@@ -23,6 +23,7 @@ export type StudioState = {
   removeNote(track: TrackKind, id: string): void;
   setBpm(bpm: StudioBpm): void;
   setKey(key: CompositionKey): void;
+  replaceChordAtBeat(startBeat: number, midis: number[]): void;
   replaceComposition(composition: Composition): void;
   selectNote(track: TrackKind, id: string | null): void;
   setSelectedTrack(track: TrackKind): void;
@@ -60,21 +61,23 @@ export function createStudioStore(initialComposition: Composition): StoreApi<Stu
       composition: cloneComposition(initialComposition),
       selectedTrack: 'drums',
       selectedNoteId: null,
-      focusedBeat: 0,
+      focusedBeat: null,
       playheadBeat: 0,
       canUndo: false,
       canRedo: false,
 
       addNote(track, event) {
+        const id = createEventId();
         commit((draft) => {
           const startBeat = clampStart(event.startBeat);
           draft.tracks[track].push({
             ...event,
-            id: createEventId(),
+            id,
             startBeat,
             durationBeats: clampDuration(event.durationBeats, startBeat),
           });
         });
+        set({ selectedTrack: track, selectedNoteId: id, focusedBeat: null });
       },
 
       moveNote(track, id, patch) {
@@ -109,6 +112,21 @@ export function createStudioStore(initialComposition: Composition): StoreApi<Stu
         commit((draft) => { draft.key = key; });
       },
 
+      replaceChordAtBeat(startBeat, midis) {
+        const quantizedStart = clampStart(startBeat);
+        commit((draft) => {
+          draft.tracks.chords = draft.tracks.chords.filter((event) => event.startBeat !== quantizedStart);
+          draft.tracks.chords.push(...midis.map((midi) => ({
+            id: createEventId(),
+            midi: Math.round(midi),
+            startBeat: quantizedStart,
+            durationBeats: clampDuration(4, quantizedStart),
+            velocity: 0.72,
+          })));
+        });
+        set({ selectedTrack: 'chords', selectedNoteId: null, focusedBeat: null });
+      },
+
       replaceComposition(composition) {
         past.length = 0;
         future.length = 0;
@@ -116,11 +134,11 @@ export function createStudioStore(initialComposition: Composition): StoreApi<Stu
       },
 
       selectNote(track, id) {
-        set({ selectedTrack: track, selectedNoteId: id });
+        set({ selectedTrack: track, selectedNoteId: id, focusedBeat: null });
       },
 
       setSelectedTrack(track) {
-        set({ selectedTrack: track, selectedNoteId: null });
+        set({ selectedTrack: track, selectedNoteId: null, focusedBeat: null });
       },
 
       focusAt(track, beat) {
@@ -138,6 +156,7 @@ export function createStudioStore(initialComposition: Composition): StoreApi<Stu
         set({
           composition: previous,
           selectedNoteId: null,
+          focusedBeat: null,
           canUndo: past.length > 0,
           canRedo: true,
         });
@@ -150,6 +169,7 @@ export function createStudioStore(initialComposition: Composition): StoreApi<Stu
         set({
           composition: next,
           selectedNoteId: null,
+          focusedBeat: null,
           canUndo: true,
           canRedo: future.length > 0,
         });
