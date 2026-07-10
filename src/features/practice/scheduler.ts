@@ -1,9 +1,16 @@
-import type { ReviewRecord } from '../../data/db';
+import type { AttemptRecord, ReviewRecord } from '../../data/db';
 import type { SkillId } from '../../content/schema';
 import type { CompositionIssue } from '../../domain/music/types';
 
 export type ReviewResult = { correct: boolean; hints: number };
-export type WeakSkill = { skillId: SkillId; mastery: number };
+export type WeakSkill = {
+  skillId: SkillId;
+  mastery: number;
+  correctRate?: number;
+  errorCount?: number;
+  hintCount?: number;
+  recentErrorCode?: string;
+};
 
 export type PracticeItem =
   | { id: string; source: 'due'; skillId: SkillId; review: ReviewRecord }
@@ -40,6 +47,66 @@ type DailyPracticeInput = {
   compositionIssues: readonly CompositionIssue[];
   limit?: number;
 };
+
+type WeakSkillAccumulator = {
+  skillId: SkillId;
+  total: number;
+  correct: number;
+  errorCount: number;
+  hintCount: number;
+  recentErrorCode?: string;
+  recentErrorAt?: string;
+};
+
+export function deriveWeakSkills(attempts: readonly AttemptRecord[]): WeakSkill[] {
+  const bySkill = new Map<SkillId, WeakSkillAccumulator>();
+
+  for (const attempt of attempts) {
+    for (const skillId of attempt.skillIds) {
+      const current = bySkill.get(skillId) ?? {
+        skillId,
+        total: 0,
+        correct: 0,
+        errorCount: 0,
+        hintCount: 0,
+      };
+      current.total += 1;
+      current.correct += attempt.correct ? 1 : 0;
+      current.errorCount += attempt.correct ? 0 : 1;
+      current.hintCount += attempt.hints;
+      if (!attempt.correct && attempt.errorCode && (!current.recentErrorAt || attempt.createdAt > current.recentErrorAt)) {
+        current.recentErrorCode = attempt.errorCode;
+        current.recentErrorAt = attempt.createdAt;
+      }
+      bySkill.set(skillId, current);
+    }
+  }
+
+  return [...bySkill.values()]
+    .map(({ skillId, total, correct, errorCount, hintCount, recentErrorCode }) => {
+      const correctRate = total === 0 ? 0 : correct / total;
+      const mastery = Math.max(0, Math.min(100, Math.round(correctRate * 100 - (hintCount / total) * 5)));
+      return { skillId, mastery, correctRate, errorCount, hintCount, recentErrorCode };
+    })
+    .sort((a, b) => a.mastery - b.mastery
+      || (b.errorCount ?? 0) - (a.errorCount ?? 0)
+      || (b.hintCount ?? 0) - (a.hintCount ?? 0)
+      || a.skillId.localeCompare(b.skillId));
+}
+
+export function buildDailyPracticeFromAttempts(input: {
+  dueReviews: readonly ReviewRecord[];
+  attempts: readonly AttemptRecord[];
+  compositionIssues: readonly CompositionIssue[];
+  limit?: number;
+}): PracticeItem[] {
+  return buildDailyPractice({
+    dueReviews: input.dueReviews,
+    weakSkills: deriveWeakSkills(input.attempts),
+    compositionIssues: input.compositionIssues,
+    limit: input.limit,
+  });
+}
 
 export function buildDailyPractice({
   dueReviews,

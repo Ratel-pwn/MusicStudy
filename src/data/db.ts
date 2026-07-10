@@ -17,7 +17,7 @@ export type ProgressRecord = {
 export type AttemptRecord = {
   id: string;
   lessonId: string;
-  skillIds: string[];
+  skillIds: SkillId[];
   correct: boolean;
   hints: number;
   errorCode?: string;

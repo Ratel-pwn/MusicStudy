@@ -1,6 +1,15 @@
-import { SkillOrbit, type SkillOrbitItem } from './SkillOrbit';
+import type { AttemptRecord, ReviewRecord } from '../../data/db';
+import { SkillOrbit } from './SkillOrbit';
+import { buildSkillOrbitItems } from './profileData';
 
-export function ProfilePage({ skills }: { skills: readonly SkillOrbitItem[] }) {
+export function ProfilePage({
+  attempts = [],
+  reviews = [],
+}: {
+  attempts?: readonly AttemptRecord[];
+  reviews?: readonly ReviewRecord[];
+}) {
+  const skills = buildSkillOrbitItems({ attempts, reviews });
   return (
     <main aria-label="能力轨道" className="profile-page">
       <header className="profile-heading">

@@ -89,4 +89,18 @@ describe('local repositories', () => {
     expect(saved.createdAt).toEqual(expect.any(String));
     expect(await db.attempts.get(saved.id)).toEqual(saved);
   });
+
+  it('reads recent persisted attempts newest first with an optional limit', async () => {
+    await db.attempts.bulkAdd([
+      { id: 'old', lessonId: 'pitch-01', skillIds: ['pitch'], correct: false, hints: 0, errorCode: 'wrong-octave', createdAt: '2026-07-09T08:00:00.000Z' },
+      { id: 'new', lessonId: 'rhythm-01', skillIds: ['rhythm'], correct: true, hints: 1, createdAt: '2026-07-11T08:00:00.000Z' },
+      { id: 'middle', lessonId: 'chord-01', skillIds: ['chord', 'pitch'], correct: false, hints: 2, errorCode: 'wrong-third', createdAt: '2026-07-10T08:00:00.000Z' },
+    ]);
+
+    await expect(attemptRepository.recent(2)).resolves.toEqual([
+      expect.objectContaining({ id: 'new' }),
+      expect.objectContaining({ id: 'middle' }),
+    ]);
+    await expect(attemptRepository.recent()).resolves.toHaveLength(3);
+  });
 });

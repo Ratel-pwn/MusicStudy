@@ -59,6 +59,13 @@ export const attemptRepository = {
     await db.attempts.add(record);
     return record;
   },
+
+  async recent(limit?: number): Promise<AttemptRecord[]> {
+    const recent = db.attempts.orderBy('createdAt').reverse();
+    return limit === undefined
+      ? recent.toArray()
+      : recent.limit(Math.max(0, Math.floor(limit))).toArray();
+  },
 };
 
 export type CompleteReviewInput = {

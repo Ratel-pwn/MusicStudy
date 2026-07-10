@@ -8,7 +8,7 @@ export type SkillOrbitItem = {
   id: SkillId;
   label: string;
   mastery: number;
-  dueAt: string;
+  dueAt?: string;
   recentErrors: readonly string[];
   recommendedPractice: string;
 };
@@ -57,7 +57,7 @@ export function SkillOrbit({ skills }: { skills: readonly SkillOrbitItem[] }) {
         <article aria-live="polite" className="orbit-detail">
           <h2>{selected.label}<span>{selected.mastery}%</span></h2>
           <dl>
-            <div><dt><CalendarBlank aria-hidden="true" />到期日期</dt><dd>{dateLabel(selected.dueAt)}</dd></div>
+            <div><dt><CalendarBlank aria-hidden="true" />到期日期</dt><dd>{selected.dueAt ? dateLabel(selected.dueAt) : '尚未安排'}</dd></div>
             <div><dt><WarningCircle aria-hidden="true" />近期错误</dt><dd>{selected.recentErrors.length ? selected.recentErrors.join('、') : '近期没有重复错误'}</dd></div>
           </dl>
           <p>推荐练习 <ArrowRight aria-hidden="true" /> <strong>{selected.recommendedPractice}</strong></p>
