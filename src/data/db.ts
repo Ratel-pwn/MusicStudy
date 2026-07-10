@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 
+import type { SkillId } from '../content/schema';
 import type { Composition } from '../domain/music/types';
 
 export type StarRating = 0 | 1 | 2 | 3;
@@ -24,7 +25,7 @@ export type AttemptRecord = {
 };
 
 export type ReviewRecord = {
-  skillId: string;
+  skillId: SkillId;
   mastery: number;
   intervalDays: 1 | 3 | 7 | 14;
   dueAt: string;

@@ -1,0 +1,47 @@
+.profile-page {
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding: clamp(1.5rem, 5vw, 5rem);
+  color: #fff4d6;
+  background:
+    radial-gradient(circle at 22% 18%, rgba(78, 170, 148, 0.22), transparent 25rem),
+    radial-gradient(circle at 86% 78%, rgba(239, 118, 93, 0.17), transparent 28rem),
+    #0b2236;
+}
+.profile-heading { max-width: 76rem; margin: 0 auto clamp(3rem, 8vw, 7rem); }
+.profile-heading p { margin: 0 0 0.7rem; color: #e7c55f; font-weight: 850; }
+.profile-heading h1 { max-width: 66rem; margin: 0; font-family: 'Cabinet Grotesk', 'Noto Serif SC', serif; font-size: clamp(2.6rem, 6vw, 6rem); line-height: 0.98; letter-spacing: -0.055em; }
+.skill-orbit-shell { display: grid; max-width: 76rem; margin: 0 auto; align-items: center; grid-template-columns: minmax(28rem, 1.35fr) minmax(18rem, 0.65fr); gap: clamp(3rem, 8vw, 8rem); }
+.skill-orbit { position: relative; width: min(62vw, 38rem); aspect-ratio: 1; margin: 0 auto; border: 2px solid rgba(255, 244, 214, 0.25); border-radius: 50%; }
+.skill-orbit::before { position: absolute; inset: 16%; border: 1px dashed rgba(231, 197, 95, 0.44); border-radius: 50%; content: ''; }
+.orbit-core { position: absolute; inset: 34%; display: grid; place-content: center; border: 1px solid rgba(255, 244, 214, 0.18); border-radius: 50%; text-align: center; background: rgba(16, 42, 67, 0.88); }
+.orbit-core strong { color: #e7c55f; font-family: 'Cabinet Grotesk', serif; font-size: clamp(2rem, 5vw, 4.5rem); line-height: 1; }
+.orbit-core span { margin-top: 0.35rem; font-size: 0.72rem; font-weight: 750; line-height: 1.35; }
+.orbit-node { position: absolute; top: 50%; left: 50%; display: grid; width: clamp(5.7rem, 10vw, 7.5rem); min-height: clamp(5.7rem, 10vw, 7.5rem); place-content: center; border: 2px solid #fff4d6; border-style: var(--node-line, solid); border-radius: 50%; color: #102a43; background: #f6ecd7; box-shadow: 0 8px 0 rgba(2, 17, 29, 0.5); transform: translate(-50%, -50%) rotate(calc(var(--orbit-index) * 60deg - 90deg)) translateX(clamp(10rem, 25vw, 18.9rem)) rotate(calc(var(--orbit-index) * -60deg + 90deg)); cursor: pointer; transition: scale 180ms ease, background 180ms ease; }
+.orbit-node[data-line-style='dashed'] { --node-line: dashed; background: #efb09f; }
+.orbit-node[aria-pressed='true'] { color: #102a43; background: #e7c55f; scale: 1.1; }
+.orbit-node span { font-weight: 900; }
+.orbit-node strong { margin: 0.1rem 0; font-family: 'Cabinet Grotesk', serif; font-size: 1.5rem; }
+.orbit-node small { font-size: 0.64rem; font-weight: 850; }
+.orbit-detail { padding-left: clamp(1.5rem, 4vw, 4rem); border-left: 2px solid #e7c55f; }
+.orbit-detail h2 { display: flex; margin: 0 0 2.5rem; align-items: baseline; justify-content: space-between; gap: 1rem; font-family: 'Cabinet Grotesk', 'Noto Serif SC', serif; font-size: clamp(2.2rem, 5vw, 4.5rem); }
+.orbit-detail h2 span { color: #e7c55f; font-size: 0.46em; }
+.orbit-detail dl { margin: 0; }
+.orbit-detail dl div { padding: 1rem 0; border-top: 1px solid rgba(255, 244, 214, 0.18); }
+.orbit-detail dt { display: flex; align-items: center; gap: 0.45rem; color: rgba(255, 244, 214, 0.64); font-size: 0.72rem; font-weight: 800; }
+.orbit-detail dd { margin: 0.45rem 0 0; font-family: 'Noto Serif SC', serif; font-size: 1.15rem; font-weight: 750; }
+.orbit-detail p { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; margin: 2rem 0 0; color: #e7c55f; }
+.orbit-detail p strong { color: #fff4d6; }
+
+@media (max-width: 860px) {
+  .skill-orbit-shell { grid-template-columns: 1fr; }
+  .skill-orbit { width: min(88vw, 34rem); }
+  .orbit-node { transform: translate(-50%, -50%) rotate(calc(var(--orbit-index) * 60deg - 90deg)) translateX(clamp(9rem, 38vw, 17rem)) rotate(calc(var(--orbit-index) * -60deg + 90deg)); }
+}
+@media (max-width: 520px) {
+  .skill-orbit { display: grid; width: 100%; aspect-ratio: auto; border: 0; border-radius: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+  .skill-orbit::before, .orbit-core { display: none; }
+  .orbit-node { position: static; width: 100%; min-height: 6.5rem; border-radius: 1.5rem 0.25rem 1.5rem 0.25rem; transform: none; }
+  .orbit-node[aria-pressed='true'] { scale: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .orbit-node { transition: none; } }

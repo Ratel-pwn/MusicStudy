@@ -1,12 +1,15 @@
 import type { Composition } from '../domain/music/types';
+import type { SkillId } from '../content/schema';
 import { calculateStars } from '../features/map/progression';
 import {
   db,
   type AttemptRecord,
   type CompositionRecord,
   type ProgressRecord,
+  type ReviewRecord,
   type StarRating,
 } from './db';
+import { scheduleReview, type ReviewResult } from '../features/practice/scheduler';
 
 export type CompleteLessonInput = {
   lessonId: string;
@@ -55,6 +58,32 @@ export const attemptRepository = {
     };
     await db.attempts.add(record);
     return record;
+  },
+};
+
+export type CompleteReviewInput = {
+  skillId: SkillId;
+  result: ReviewResult;
+  completedAt?: Date;
+  current?: ReviewRecord;
+  initialMastery?: number;
+};
+
+export const reviewRepository = {
+  async complete(input: CompleteReviewInput): Promise<ReviewRecord> {
+    return db.transaction('rw', db.reviews, async () => {
+      const completedAt = input.completedAt ?? new Date();
+      const current = (await db.reviews.get(input.skillId)) ?? input.current ?? {
+        skillId: input.skillId,
+        mastery: input.initialMastery ?? 0,
+        intervalDays: 1,
+        dueAt: completedAt.toISOString(),
+        consecutiveCorrect: 0,
+      };
+      const next = scheduleReview(current, input.result, completedAt);
+      await db.reviews.put(next);
+      return next;
+    });
   },
 };
 

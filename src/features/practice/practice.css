@@ -1,0 +1,63 @@
+.practice-page {
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding: clamp(1.25rem, 4vw, 4rem);
+  color: #102a43;
+  background:
+    radial-gradient(circle at 86% 12%, rgba(231, 197, 95, 0.32), transparent 25rem),
+    linear-gradient(145deg, #f6ecd7, #fffaf0 64%);
+}
+
+.practice-intro {
+  display: flex;
+  max-width: 76rem;
+  margin: 0 auto clamp(2.5rem, 7vw, 6rem);
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.practice-intro p { margin: 0 0 0.75rem; color: #9a4c40; font-weight: 900; letter-spacing: 0.08em; }
+.practice-intro h1 { max-width: 58rem; margin: 0; font-family: 'Cabinet Grotesk', 'Noto Serif SC', serif; font-size: clamp(2.4rem, 5.7vw, 5.8rem); line-height: 0.98; letter-spacing: -0.055em; }
+.practice-intro > svg { width: clamp(5rem, 11vw, 10rem); height: auto; color: #4eaa94; }
+
+.practice-layout { display: grid; max-width: 76rem; margin: 0 auto; grid-template-columns: minmax(12rem, 0.62fr) minmax(0, 1.8fr); gap: clamp(2rem, 6vw, 7rem); }
+.practice-lane { position: relative; display: grid; align-content: start; gap: 1.25rem; padding-left: 0.25rem; }
+.practice-lane::before, .lane-current { position: absolute; top: 1rem; bottom: 1rem; left: 1.2rem; width: 2px; content: ''; }
+.practice-lane::before { border-left: 2px dashed rgba(16, 42, 67, 0.28); }
+.lane-current { bottom: auto; height: calc((100% - 2rem) * var(--lane-progress) / 100); background: #4eaa94; transition: height 300ms ease; }
+.lane-stop { position: relative; z-index: 1; display: flex; align-items: center; gap: 0.9rem; }
+.lane-stop > span { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; place-items: center; border: 2px solid #102a43; border-radius: 50%; background: #fffaf0; font-size: 0.72rem; font-weight: 900; }
+.lane-stop > span svg { width: 1rem; }
+.lane-stop p { margin: 0; font-weight: 850; }
+.lane-stop small { display: block; margin-top: 0.1rem; color: #5c6f7f; font-size: 0.68rem; font-weight: 700; }
+.lane-stop[aria-current='step'] > span { background: #e7c55f; box-shadow: 0 0 0 6px rgba(231, 197, 95, 0.25); }
+.lane-stop.is-完成 > span { color: #fff4d6; background: #4eaa94; }
+
+.practice-focus { min-height: 29rem; }
+.next-review { display: inline-flex; align-items: center; gap: 0.45rem; margin: 0 0 1.5rem; padding-bottom: 0.45rem; border-bottom: 2px solid #4eaa94; color: #285f56; font-weight: 900; }
+.focus-task, .practice-finished { min-height: 27rem; padding: clamp(2rem, 5vw, 5.5rem); border: 2px solid #102a43; border-radius: 5rem 0.5rem 5rem 0.5rem; background: rgba(255, 250, 240, 0.8); box-shadow: 16px 18px 0 rgba(16, 42, 67, 0.1); }
+.focus-task > svg { width: 4rem; height: 4rem; color: #ef765d; }
+.focus-task > p { margin: 2rem 0 0.6rem; color: #5d706f; font-weight: 750; }
+.focus-task h2, .practice-finished h2 { max-width: 46rem; margin: 0; font-family: 'Cabinet Grotesk', 'Noto Serif SC', serif; font-size: clamp(2rem, 4vw, 4rem); line-height: 1.08; letter-spacing: -0.04em; }
+.practice-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 3rem; }
+.practice-actions button { min-height: 3.2rem; padding: 0.8rem 1.4rem; border: 2px solid #102a43; border-radius: 999px; color: #fff4d6; background: #102a43; font: inherit; font-weight: 900; cursor: pointer; transition: transform 150ms ease, box-shadow 150ms ease; }
+.practice-actions button + button { display: inline-flex; align-items: center; gap: 0.4rem; color: #102a43; background: transparent; }
+.practice-actions button:hover { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(16, 42, 67, 0.2); }
+.practice-actions button:disabled { cursor: wait; opacity: 0.55; }
+.practice-finished { display: grid; align-content: center; justify-items: start; }
+.practice-finished > svg { width: 4rem; height: 4rem; margin-bottom: 1.5rem; color: #4eaa94; }
+.practice-finished p { font-weight: 750; }
+
+@media (max-width: 720px) {
+  .practice-intro > svg { display: none; }
+  .practice-layout { grid-template-columns: 1fr; }
+  .practice-lane { grid-auto-flow: column; grid-auto-columns: minmax(6.5rem, 1fr); overflow-x: auto; padding-bottom: 0.5rem; }
+  .practice-lane::before, .lane-current { display: none; }
+  .lane-stop { align-items: flex-start; }
+  .focus-task, .practice-finished { min-height: 23rem; border-radius: 3rem 0.4rem 3rem 0.4rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lane-current, .practice-actions button { transition: none; }
+}
