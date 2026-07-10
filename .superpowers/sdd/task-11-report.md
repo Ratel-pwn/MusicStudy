@@ -105,3 +105,26 @@ Modified:
 ## Issues
 
 None blocking. Automated DOM tests verify semantic and interaction behavior; no browser screenshot matrix was requested or added.
+
+## Review follow-up — 2026-07-11
+
+All Important/Minor review findings were addressed with new RED → GREEN coverage:
+
+- Repository rejection: RED stayed permanently on “正在读取学习航迹” and emitted an unhandled rejection. GREEN stores the loader error and throws it during render, so App ErrorBoundary shows the recovery page; the default “返回地图” action is a real `/map` link.
+- Snapshot export: RED exposed a dead default export button with no in-memory snapshot. GREEN adds `hasLatestRecoverySnapshot()` and hides the action with an explicit “当前没有可导出的临时作品。” message; a real seeded snapshot test verifies Blob download, while custom callbacks remain covered.
+- Transport targets: RED found the local 2.55rem rule overriding the 44px contract. GREEN sets and DOM-verifies 2.75rem minimum width and height on every TransportBar button/select.
+- PianoRoll: RED showed the compact visual note was also the button hit area. GREEN separates a transparent 2.75rem `.piano-note-hit` button from its 1.05rem `.piano-note-pill`, preserving compact visuals and a 44 × 44 px interaction target.
+
+Fresh required verification:
+
+```text
+npm test -- src/app src/shared src/features/studio
+Test Files  7 passed (7)
+Tests       54 passed (54)
+
+npm run typecheck
+PASS
+
+npm run lint:copy
+Copy check passed.
+```

@@ -81,11 +81,20 @@ export function deriveHomeRouteState({ progress, recentComposition, storage }: H
 
 function useAsyncValue<T>(load: () => Promise<T>, initial: T) {
   const [value, setValue] = useState(initial);
+  const [error, setError] = useState<unknown>();
   useEffect(() => {
     let active = true;
-    void load().then((next) => { if (active) setValue(next); });
+    void load().then(
+      (next) => {
+        if (!active) return;
+        setError(undefined);
+        setValue(next);
+      },
+      (reason) => { if (active) setError(reason); },
+    );
     return () => { active = false; };
   }, [load]);
+  if (error) throw error;
   return value;
 }
 

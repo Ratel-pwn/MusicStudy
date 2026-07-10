@@ -1,8 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { db } from '../data/db';
+import { compositionRepository } from '../data/repositories';
+import { clearLatestRecoverySnapshot } from '../shared/useAutosaveRecovery';
 import { useProgressStore } from '../stores/useProgressStore';
 import { App } from './App';
+import { vi } from 'vitest';
 
 function renderRoute(route: string) {
   return render(
@@ -14,10 +17,22 @@ function renderRoute(route: string) {
 
 describe('application routes', () => {
   beforeEach(() => {
+    clearLatestRecoverySnapshot();
     useProgressStore.setState({
       hydrated: true,
       progress: { id: 'local', xp: 0, streak: 0, stars: {}, unlockedLessonIds: [] },
     });
+  });
+
+  it('routes repository rejection into the recoverable app boundary', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(compositionRepository, 'recent').mockRejectedValueOnce(new Error('IndexedDB read failed'));
+
+    renderRoute('/');
+
+    expect(await screen.findByRole('heading', { name: '你的学习进度仍在本机' })).toBeInTheDocument();
+    const map = screen.getByRole('link', { name: '返回地图' });
+    expect(map).toHaveAttribute('href', '/map');
   });
 
   it('connects the archipelago map route to the real map page', async () => {

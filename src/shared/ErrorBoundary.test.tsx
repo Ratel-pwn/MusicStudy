@@ -1,16 +1,19 @@
-import { render, screen } from '@testing-library/react';
+import { render, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 import { AudioRecoveryBanner } from './AudioRecoveryBanner';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LoadingState } from './LoadingState';
+import { clearLatestRecoverySnapshot, useAutosaveRecovery } from './useAutosaveRecovery';
 
 function ThrowingChild(): never {
   throw new Error('render failed');
 }
 
 describe('ErrorBoundary', () => {
+  beforeEach(() => clearLatestRecoverySnapshot());
+
   it('renders a supplied fallback when a child throws', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     render(
@@ -46,6 +49,40 @@ describe('ErrorBoundary', () => {
     expect(onReturnToMap).toHaveBeenCalledOnce();
     expect(onRestoreLastStep).toHaveBeenCalledOnce();
     expect(onExportTemporaryWork).toHaveBeenCalledOnce();
+  });
+
+  it('does not offer a dead default export action without a snapshot', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    render(<ErrorBoundary><ThrowingChild /></ErrorBoundary>);
+
+    expect(screen.queryByRole('button', { name: '导出临时作品' })).not.toBeInTheDocument();
+    expect(screen.getByText('当前没有可导出的临时作品。')).toBeInTheDocument();
+  });
+
+  it('downloads the latest snapshot from the real default export action', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    const createObjectURL = vi.fn(() => 'blob:recovery');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperties(URL, {
+      createObjectURL: { configurable: true, value: createObjectURL },
+      revokeObjectURL: { configurable: true, value: revokeObjectURL },
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    const { unmount } = renderHook(() => useAutosaveRecovery({
+      delayMs: 60_000,
+      fileName: '临时作品.json',
+      save: async () => undefined,
+      value: { id: 'recover-me' },
+    }));
+    unmount();
+
+    render(<ErrorBoundary><ThrowingChild /></ErrorBoundary>);
+    await user.click(screen.getByRole('button', { name: '导出临时作品' }));
+
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(click).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:recovery');
   });
 });
 

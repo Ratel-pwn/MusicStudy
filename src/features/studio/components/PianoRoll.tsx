@@ -66,18 +66,20 @@ export function PianoRoll({ store, track }: PianoRollProps) {
           <button
             aria-label={`${TRACK_LABELS[track]}音符 ${pitchLabel(note.midi)}，位于第 ${note.startBeat + 1} 拍`}
             aria-pressed={selectedNoteId === note.id && selectedTrack === track}
-            className="piano-note"
+            className="piano-note-hit"
             key={note.id}
             onClick={() => selectNote(track, note.id)}
             onKeyDown={(event) => handleKeyDown(event, note.id)}
             style={{
               left: `${(note.startBeat / 32) * 100}%`,
+              minHeight: '2.75rem',
+              minWidth: '2.75rem',
               width: `${Math.max((note.durationBeats / 32) * 100, 0.78)}%`,
-              top: `${Math.max(4, Math.min(82, 82 - (note.midi - 36) * 2.1))}%`,
+              top: `clamp(0px, calc(${Math.max(4, Math.min(82, 82 - (note.midi - 36) * 2.1))}% - 1.375rem), calc(100% - 2.75rem))`,
             }}
             type="button"
           >
-            <span>{pitchLabel(note.midi)}</span>
+            <span className="piano-note-pill" style={{ height: '1.05rem' }}>{pitchLabel(note.midi)}</span>
           </button>
         ))}
       </div>

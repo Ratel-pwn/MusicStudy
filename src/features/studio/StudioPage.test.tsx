@@ -142,6 +142,32 @@ describe('studio editors', () => {
     expect(store.getState().playheadBeat).toBe(12.5);
   });
 
+  it('keeps every transport button and select at least 44px tall and wide', () => {
+    const store = createStudioStore(composition());
+    render(<TransportBar store={store} playing={false} onPlay={vi.fn()} onStop={vi.fn()} />);
+
+    [...screen.getAllByRole('button'), ...screen.getAllByRole('combobox')].forEach((control) => {
+      expect(control).toHaveStyle({ minHeight: '2.75rem', minWidth: '2.75rem' });
+    });
+  });
+
+  it('uses a 44px piano-roll hit target around a compact visual pill', () => {
+    const store = createStudioStore(composition({
+      tracks: {
+        drums: [], bass: [], chords: [],
+        melody: [{ id: 'compact-note', midi: 64, startBeat: 1, durationBeats: 1, velocity: 0.8 }],
+      },
+    }));
+    render(<PianoRoll store={store} track="melody" />);
+
+    const hitTarget = screen.getByRole('button', { name: /旋律音符 E4/ });
+    expect(hitTarget).toHaveClass('piano-note-hit');
+    expect(hitTarget).toHaveStyle({ minHeight: '2.75rem', minWidth: '2.75rem' });
+    const pill = hitTarget.querySelector('.piano-note-pill');
+    expect(pill).toBeInTheDocument();
+    expect(pill).toHaveStyle({ height: '1.05rem' });
+  });
+
   it('focuses the issue track and beat when a rule suggestion is selected', async () => {
     const user = userEvent.setup();
     const store = createStudioStore(composition());

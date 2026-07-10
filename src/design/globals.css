@@ -59,13 +59,18 @@ a {
 .audio-recovery-banner { position: sticky; top: 0; }
 .audio-recovery-banner button,
 .storage-recovery-banner button,
-.error-recovery button {
+.error-recovery button,
+.error-recovery a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid currentColor;
   border-radius: 999px;
   padding: 0.55rem 0.9rem;
   color: inherit;
   background: transparent;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .error-recovery {

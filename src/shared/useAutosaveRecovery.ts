@@ -11,6 +11,14 @@ export function getLatestRecoverySnapshot(): RecoverySnapshot | null {
   return latestRecoverySnapshot;
 }
 
+export function hasLatestRecoverySnapshot(): boolean {
+  return latestRecoverySnapshot !== null;
+}
+
+export function clearLatestRecoverySnapshot(): void {
+  latestRecoverySnapshot = null;
+}
+
 export function downloadLatestRecoverySnapshot(): boolean {
   const snapshot = getLatestRecoverySnapshot();
   if (!snapshot || typeof document === 'undefined') return false;

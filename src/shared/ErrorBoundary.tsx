@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { downloadLatestRecoverySnapshot } from './useAutosaveRecovery';
+import { downloadLatestRecoverySnapshot, hasLatestRecoverySnapshot } from './useAutosaveRecovery';
 
 type ErrorBoundaryProps = {
   children: ReactNode;
@@ -41,6 +41,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (!this.state.error) return this.props.children;
     if (this.props.fallback) return this.props.fallback;
 
+    const canExport = Boolean(this.props.onExportTemporaryWork) || hasLatestRecoverySnapshot();
+
     return (
       <main className="error-recovery" role="alert">
         <div>
@@ -48,10 +50,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <h1>你的学习进度仍在本机</h1>
           <span>可以返回地图、从最近步骤重试，或先导出临时作品。</span>
           <div className="error-recovery-actions">
-            <button type="button" onClick={this.returnToMap}>返回地图</button>
+            {this.props.onReturnToMap
+              ? <button type="button" onClick={this.returnToMap}>返回地图</button>
+              : <a href="/map">返回地图</a>}
             <button type="button" onClick={this.restoreLastStep}>恢复最近步骤</button>
-            <button type="button" onClick={this.exportTemporaryWork}>导出临时作品</button>
+            {canExport && <button type="button" onClick={this.exportTemporaryWork}>导出临时作品</button>}
           </div>
+          {!canExport && <small>当前没有可导出的临时作品。</small>}
         </div>
       </main>
     );
