@@ -56,6 +56,13 @@ describe('playable curriculum', () => {
     };
     lessons.forEach((lesson) => visit(lesson.id, new Set()));
   });
+
+  it('ends the middle C transfer prompt on its configured cadence note', () => {
+    const transfer = getLesson('pitch-middle-c')!.steps.find((step) => step.id === 'middle-c-transfer')!;
+    const promptNotes = transfer.prompt.match(/[A-G][#b]?\d/g) ?? [];
+
+    expect(promptNotes.at(-1)).toBe(transfer.config.cadenceNote);
+  });
 });
 
 describe('long-term course map', () => {
