@@ -1,0 +1,13 @@
+:root {
+  --sea-950: #0b2236;
+  --sea-900: #102a43;
+  --sand-100: #f6ecd7;
+  --sun-400: #e7c55f;
+  --coral-500: #ef765d;
+  --mint-500: #4eaa94;
+  --lavender-500: #7f88bd;
+  --focus: #ffd86b;
+  --radius-island: 42% 58% 54% 46% / 55% 44% 56% 45%;
+  --beat-fast: 150ms;
+  --beat-normal: 300ms;
+}

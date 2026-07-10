@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+:root {
+  color: var(--sea-950);
+  background: var(--sand-100);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
