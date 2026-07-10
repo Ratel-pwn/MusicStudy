@@ -50,6 +50,8 @@ const routeSegments = [
   { x: 724, y: 833, width: 250, angle: 181 },
 ];
 
+const DRAG_THRESHOLD = 4;
+
 const orderedLessonNodes = (courseWorlds: readonly CourseWorld[]) => [...courseWorlds]
   .sort((a, b) => a.order - b.order)
   .flatMap((world) => world.nodes)
@@ -64,9 +66,10 @@ export function MapPage({
   const rootRef = useRef<HTMLElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
-  const dragRef = useRef({ active: false, x: 0, y: 0, originX: 0, originY: 0 });
+  const dragRef = useRef({ pointerId: -1, pending: false, dragging: false, x: 0, y: 0, originX: 0, originY: 0 });
   const focusTweenRef = useRef<gsap.core.Tween | undefined>(undefined);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
 
   const sortedWorlds = useMemo(
     () => [...courseWorlds].sort((a, b) => a.order - b.order),
@@ -88,8 +91,10 @@ export function MapPage({
   }, []);
 
   useGSAP(() => {
-    const islands = gsap.utils.toArray<HTMLElement>('.map-island');
-    const paths = gsap.utils.toArray<HTMLElement>('.sea-route.is-unlocked');
+    const scope = rootRef.current;
+    if (!scope) return;
+    const islands = gsap.utils.toArray<HTMLElement>('.map-island', scope);
+    const paths = gsap.utils.toArray<HTMLElement>('.sea-route.is-unlocked', scope);
     if (reduceMotion()) {
       if (islands.length > 0) gsap.set(islands, { opacity: 1, y: 0 });
       if (paths.length > 0) gsap.set(paths, { scaleX: 1 });
@@ -143,27 +148,49 @@ export function MapPage({
   };
 
   const startDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const target = event.target as Element;
+    if (target.closest('button, a, [role="button"], [role="link"]')) return;
     dragRef.current = {
-      active: true,
+      pointerId: event.pointerId,
+      pending: true,
+      dragging: false,
       x: event.clientX,
       y: event.clientY,
       originX: offset.x,
       originY: offset.y,
     };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   const moveDrag = (event: ReactPointerEvent<HTMLElement>) => {
-    if (!dragRef.current.active) return;
+    const drag = dragRef.current;
+    if (!drag.pending || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.x;
+    const deltaY = event.clientY - drag.y;
+    if (!drag.dragging) {
+      if (Math.hypot(deltaX, deltaY) <= DRAG_THRESHOLD) return;
+      drag.dragging = true;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      setIsDragging(true);
+    }
     setOffset({
-      x: dragRef.current.originX + event.clientX - dragRef.current.x,
-      y: dragRef.current.originY + event.clientY - dragRef.current.y,
+      x: drag.originX + deltaX,
+      y: drag.originY + deltaY,
     });
   };
 
   const stopDrag = (event: ReactPointerEvent<HTMLElement>) => {
-    dragRef.current.active = false;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    const drag = dragRef.current;
+    if (!drag.pending || drag.pointerId !== event.pointerId) return;
+    if (drag.dragging) {
+      try {
+        const hasCapture = event.currentTarget.hasPointerCapture?.(event.pointerId) ?? true;
+        if (hasCapture) event.currentTarget.releasePointerCapture?.(event.pointerId);
+      } catch {
+        // The browser may release capture before pointercancel reaches React.
+      }
+    }
+    dragRef.current = { pointerId: -1, pending: false, dragging: false, x: 0, y: 0, originX: offset.x, originY: offset.y };
+    setIsDragging(false);
   };
 
   return (
@@ -182,7 +209,7 @@ export function MapPage({
 
       <nav
         aria-label="音乐群岛学习地图"
-        className="archipelago-viewport"
+        className={`archipelago-viewport ${isDragging ? 'is-dragging' : ''}`}
         data-testid="archipelago-viewport"
         onKeyDown={handleKeyDown}
         onPointerCancel={stopDrag}
@@ -195,7 +222,7 @@ export function MapPage({
         <div
           className="archipelago-chart"
           data-testid="archipelago-chart"
-          style={{ transform: `translate3d(${offset.x}px, ${offset.y}px, 0)` }}
+          style={{ transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(var(--map-scale))` }}
         >
           <div className="chart-compass" aria-hidden="true"><Compass weight="duotone" /><i>N</i></div>
           {routeSegments.map((route, index) => {
