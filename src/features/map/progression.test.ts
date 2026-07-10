@@ -1,4 +1,5 @@
-import { calculateStars } from './progression';
+import { worlds } from '../../content/worlds';
+import { calculateStars, unlockedLessonIds } from './progression';
 
 describe('calculateStars', () => {
   it.each([
@@ -8,5 +9,18 @@ describe('calculateStars', () => {
     [{ score: 90, hints: 0, completedVariant: false }, 2],
   ] as const)('returns the product-rule star rating for %o', (input, expected) => {
     expect(calculateStars(input)).toBe(expected);
+  });
+});
+
+describe('unlockedLessonIds', () => {
+  it('opens the next playable lesson after a starred lesson', () => {
+    expect(unlockedLessonIds(worlds, { 'pitch-high-low': 1 })).toContain('pitch-middle-c');
+  });
+
+  it('opens the first lesson for a new learner and omits planned capability nodes', () => {
+    const unlocked = unlockedLessonIds(worlds, {});
+
+    expect(unlocked).toEqual(['pitch-high-low']);
+    expect(unlocked).not.toContain('node-interval-shapes');
   });
 });
