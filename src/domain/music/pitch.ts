@@ -20,7 +20,7 @@ const PITCH_CLASSES: Record<NoteName, number> = {
   B: 11,
 };
 
-export function pitchClass(note: NoteName): number {
+function pitchClass(note: NoteName): number {
   return PITCH_CLASSES[note];
 }
 

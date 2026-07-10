@@ -49,11 +49,25 @@ describe('evaluateComposition', () => {
     );
   });
 
-  it.each([69, 129])('reports BPM %i outside the supported 70–128 range', (bpm) => {
+  it.each([69, 129, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'reports BPM %s outside the supported 70–128 range',
+    (bpm) => {
+      const composition = validComposition();
+      composition.bpm = bpm;
+
+      expect(evaluateComposition(composition)).toContainEqual(
+        expect.objectContaining({ code: 'tempo-out-of-range' }),
+      );
+    },
+  );
+
+  it.each([70, 128])('accepts boundary BPM %i', (bpm) => {
     const composition = validComposition();
     composition.bpm = bpm;
 
-    expect(evaluateComposition(composition)).toContainEqual(expect.objectContaining({ code: 'tempo-out-of-range' }));
+    expect(evaluateComposition(composition)).not.toContainEqual(
+      expect.objectContaining({ code: 'tempo-out-of-range' }),
+    );
   });
 
   it('reports a melody range wider than 19 semitones', () => {

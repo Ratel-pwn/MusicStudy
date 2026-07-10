@@ -47,7 +47,7 @@ export function evaluateComposition(composition: Composition): CompositionIssue[
     }
   }
 
-  if (composition.bpm < MIN_BPM || composition.bpm > MAX_BPM) {
+  if (!Number.isFinite(composition.bpm) || composition.bpm < MIN_BPM || composition.bpm > MAX_BPM) {
     issues.push({
       code: 'tempo-out-of-range',
       message: `Tempo must be between ${MIN_BPM} and ${MAX_BPM} BPM.`,
