@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { AudioEngine, type AudioStatus, type MusicAudioEngine } from './AudioEngine';
 
 export type AudioContextValue = {
@@ -13,8 +13,17 @@ export const AudioContext = createContext<AudioContextValue | null>(null);
 export function AudioProvider({ children }: PropsWithChildren) {
   const [engine] = useState<MusicAudioEngine>(() => new AudioEngine());
   const [status, setStatus] = useState<AudioStatus>(engine.status);
+  const disposePending = useRef(false);
 
-  useEffect(() => () => engine.dispose(), [engine]);
+  useEffect(() => {
+    disposePending.current = false;
+    return () => {
+      disposePending.current = true;
+      queueMicrotask(() => {
+        if (disposePending.current) engine.dispose();
+      });
+    };
+  }, [engine]);
 
   const unlock = useCallback(async () => {
     setStatus('unlocking');

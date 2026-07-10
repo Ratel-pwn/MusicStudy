@@ -19,19 +19,17 @@ const midiToNote = (midi: number) => Tone.Frequency(midi, 'midi').toNote();
 export class AudioEngine implements MusicAudioEngine {
   status: AudioStatus = 'locked';
 
-  private readonly synth = new Tone.Synth().toDestination();
-  private readonly metronomeSynth = new Tone.Synth().toDestination();
+  private synth: Tone.Synth | null = null;
+  private metronomeSynth: Tone.Synth | null = null;
+  private visibilityListenerRegistered = false;
   private disposed = false;
-
-  constructor() {
-    document.addEventListener('visibilitychange', this.handleVisibilityChange);
-  }
 
   async unlock(): Promise<AudioStatus> {
     this.status = 'unlocking';
 
     try {
       await Tone.start();
+      if (!this.initializeResources()) throw new Error('Audio resources unavailable');
       this.status = 'ready';
     } catch {
       this.status = 'failed';
@@ -41,13 +39,13 @@ export class AudioEngine implements MusicAudioEngine {
   }
 
   playMidi(midi: number, durationBeats = 1, velocity = 0.8): void {
-    this.synth.triggerAttackRelease(midiToNote(midi), durationBeats, Tone.now(), velocity);
+    this.synth?.triggerAttackRelease(midiToNote(midi), durationBeats, Tone.now(), velocity);
   }
 
   previewChord(midis: number[]): void {
     const time = Tone.now();
     midis.forEach((midi) => {
-      this.synth.triggerAttackRelease(midiToNote(midi), 1, time, 0.8);
+      this.synth?.triggerAttackRelease(midiToNote(midi), 1, time, 0.8);
     });
   }
 
@@ -55,7 +53,7 @@ export class AudioEngine implements MusicAudioEngine {
     this.stop();
     Tone.Transport.bpm.value = bpm;
     Tone.Transport.scheduleRepeat((time) => {
-      this.metronomeSynth.triggerAttackRelease('C6', '32n', time, 0.7);
+      this.metronomeSynth?.triggerAttackRelease('C6', '32n', time, 0.7);
     }, '4n');
     Tone.Transport.start();
   }
@@ -67,7 +65,7 @@ export class AudioEngine implements MusicAudioEngine {
 
     Object.values(composition.tracks).flat().forEach((noteEvent) => {
       Tone.Transport.schedule((time) => {
-        this.synth.triggerAttackRelease(
+        this.synth?.triggerAttackRelease(
           midiToNote(noteEvent.midi),
           noteEvent.durationBeats * secondsPerBeat,
           time,
@@ -87,10 +85,38 @@ export class AudioEngine implements MusicAudioEngine {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.stop();
-    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
-    this.synth.dispose();
-    this.metronomeSynth.dispose();
+    if (this.synth || this.metronomeSynth || this.visibilityListenerRegistered) this.stop();
+    if (this.visibilityListenerRegistered) {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+      this.visibilityListenerRegistered = false;
+    }
+    this.synth?.dispose();
+    this.metronomeSynth?.dispose();
+    this.synth = null;
+    this.metronomeSynth = null;
+  }
+
+  private initializeResources(): boolean {
+    if (this.disposed) return false;
+    if (this.synth && this.metronomeSynth) return true;
+
+    let synth: Tone.Synth | null = null;
+    let metronomeSynth: Tone.Synth | null = null;
+    try {
+      synth = new Tone.Synth();
+      synth.toDestination();
+      metronomeSynth = new Tone.Synth();
+      metronomeSynth.toDestination();
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+      this.synth = synth;
+      this.metronomeSynth = metronomeSynth;
+      this.visibilityListenerRegistered = true;
+      return true;
+    } catch {
+      synth?.dispose();
+      metronomeSynth?.dispose();
+      return false;
+    }
   }
 
   private readonly handleVisibilityChange = () => {
