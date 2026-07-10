@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useAudio } from '../../audio/useAudio';
 import type { Composition } from '../../domain/music/types';
 import { getLesson } from '../../content/worlds';
+import { useReducedMotion } from '../../shared/useReducedMotion';
 
 const keys = [
   { label: 'C', midi: 60 },
@@ -37,6 +38,7 @@ export function HomePage({
   const [heardMiddleC, setHeardMiddleC] = useState(false);
   const melodyTimers = useRef<number[]>([]);
   const mounted = useRef(true);
+  const reducedMotion = useReducedMotion();
   const lessonTitle = currentLessonTitle === '听见高与低'
     ? (getLesson(currentLessonId)?.title ?? currentLessonTitle)
     : currentLessonTitle;
@@ -44,9 +46,8 @@ export function HomePage({
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const context = gsap.context(() => {
-      if (reduced) {
+      if (reducedMotion) {
         gsap.set('.home-reveal', { opacity: 1, y: 0 });
         return;
       }
@@ -59,7 +60,7 @@ export function HomePage({
       });
     }, root);
     return () => context.revert();
-  }, [heardMiddleC, returning]);
+  }, [heardMiddleC, reducedMotion, returning]);
 
   useEffect(() => {
     mounted.current = true;

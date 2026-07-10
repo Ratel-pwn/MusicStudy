@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import type { CourseNode, CourseWorld } from '../../content/schema';
+import { useReducedMotion } from '../../shared/useReducedMotion';
 import { unlockedLessonIds, type LessonStars } from './progression';
 import './map.css';
 
@@ -70,6 +71,7 @@ export function MapPage({
   const focusTweenRef = useRef<gsap.core.Tween | undefined>(undefined);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   const sortedWorlds = useMemo(
     () => [...courseWorlds].sort((a, b) => a.order - b.order),
@@ -81,8 +83,6 @@ export function MapPage({
   const currentLessonId = [...lessonNodes]
     .reverse()
     .find((node) => (stars[node.lessonId] ?? 0) > 0)?.lessonId ?? lessonNodes[0]?.lessonId;
-  const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-
   useEffect(() => {
     navRef.current?.focus();
     return () => {
@@ -95,7 +95,7 @@ export function MapPage({
     if (!scope) return;
     const islands = gsap.utils.toArray<HTMLElement>('.map-island', scope);
     const paths = gsap.utils.toArray<HTMLElement>('.sea-route.is-unlocked', scope);
-    if (reduceMotion()) {
+    if (reducedMotion) {
       if (islands.length > 0) gsap.set(islands, { opacity: 1, y: 0 });
       if (paths.length > 0) gsap.set(paths, { scaleX: 1 });
       return;
@@ -114,10 +114,10 @@ export function MapPage({
         { scaleX: 1, duration: 0.65, stagger: 0.06, ease: 'power2.inOut' },
       );
     }
-  }, { scope: rootRef, dependencies: [unlocked.size] });
+  }, { scope: rootRef, dependencies: [reducedMotion, unlocked.size] });
 
   const focusNode = (button: HTMLButtonElement) => {
-    if (reduceMotion()) {
+    if (reducedMotion) {
       gsap.set(button, { scale: 1 });
       return;
     }

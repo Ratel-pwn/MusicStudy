@@ -94,4 +94,19 @@ describe('MapPage', () => {
     expect(islandCalls.map(([, scope]) => scope)).toEqual(expect.arrayContaining(roots));
     toArray.mockRestore();
   });
+
+  it('does not create GSAP tweens when reduced motion is requested', () => {
+    const fromTo = vi.spyOn(gsap, 'fromTo');
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+
+    render(<MapPage courseWorlds={worlds} stars={{ 'pitch-high-low': 1 }} />);
+
+    expect(fromTo).not.toHaveBeenCalled();
+    fromTo.mockRestore();
+    vi.unstubAllGlobals();
+  });
 });

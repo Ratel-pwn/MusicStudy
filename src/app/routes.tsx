@@ -15,6 +15,7 @@ import { buildDailyPracticeFromAttempts, type PracticeItem } from '../features/p
 import { ProfilePage } from '../features/profile/ProfilePage';
 import { StudioPage } from '../features/studio/StudioPage';
 import { useProgressStore } from '../stores/useProgressStore';
+import { LoadingState } from '../shared/LoadingState';
 import { AppShell } from './AppShell';
 
 type HomeStorage = Pick<Storage, 'length' | 'key' | 'getItem'>;
@@ -93,7 +94,7 @@ function HomeRoute() {
   const loadRecent = useMemo(() => () => compositionRepository.recent(), []);
   const recentComposition = useAsyncValue<Composition | undefined | null>(loadRecent, null);
   if (recentComposition === null) {
-    return <main aria-busy="true" aria-label="正在读取学习航迹" className="app-loading" role="status">正在读取学习航迹</main>;
+    return <LoadingState label="正在读取学习航迹" />;
   }
   const state = deriveHomeRouteState({ progress, recentComposition });
   return (

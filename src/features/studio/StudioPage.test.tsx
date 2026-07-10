@@ -13,6 +13,7 @@ import { createStudioStore } from './studioStore';
 
 const audio = vi.hoisted(() => ({
   engine: {
+    status: 'ready',
     playComposition: vi.fn(),
     stop: vi.fn(),
   },
@@ -170,6 +171,7 @@ describe('StudioPage', () => {
       clear: () => storage.clear(),
     });
     repository.get.mockResolvedValue(undefined);
+    audio.engine.status = 'ready';
   });
 
   afterAll(() => vi.unstubAllGlobals());
@@ -186,6 +188,18 @@ describe('StudioPage', () => {
     expect(audio.engine.stop).toHaveBeenCalledOnce();
   });
 
+  it('keeps editing available and does not start playback when audio recovery fails', async () => {
+    const user = userEvent.setup();
+    audio.engine.status = 'failed';
+    render(<StudioPage />);
+
+    await user.click(screen.getByRole('button', { name: '播放作品' }));
+    await user.click(screen.getByRole('button', { name: '底鼓 第 1 拍' }));
+
+    expect(audio.engine.playComposition).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '底鼓 第 1 拍' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('debounces composition autosave for 500ms after an edit', async () => {
     vi.useFakeTimers();
     render(<StudioPage />);
@@ -198,6 +212,29 @@ describe('StudioPage', () => {
     expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({
       tracks: expect.objectContaining({ drums: [expect.objectContaining({ midi: 36 })] }),
     }));
+    vi.useRealTimers();
+  });
+
+  it('keeps a downloadable JSON snapshot when autosave fails', async () => {
+    vi.useFakeTimers();
+    repository.save.mockRejectedValueOnce(new Error('disk full'));
+    const createObjectURL = vi.fn(() => 'blob:temporary-work');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperties(URL, {
+      createObjectURL: { configurable: true, value: createObjectURL },
+      revokeObjectURL: { configurable: true, value: revokeObjectURL },
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    render(<StudioPage />);
+
+    fireEvent.click(screen.getByRole('button', { name: '底鼓 第 1 拍' }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('作品暂未保存');
+    fireEvent.click(screen.getByRole('button', { name: '下载临时作品 JSON' }));
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(click).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:temporary-work');
     vi.useRealTimers();
   });
 

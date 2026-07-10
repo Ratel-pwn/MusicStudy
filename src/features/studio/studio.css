@@ -31,7 +31,7 @@
 .mobile-track-switcher { display: none; }
 .studio-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; gap: 1rem; max-width: 96rem; margin: auto; align-items: start; }
 .timeline-shell { min-width: 0; overflow: auto; border: 1px solid rgba(16,42,67,.24); border-radius: 1.1rem; background: rgba(255,248,232,.72); box-shadow: 0 18px 50px rgba(11,34,54,.08); }
-.timeline-ruler, .track-row { min-width: 72rem; display: grid; grid-template-columns: var(--track-head) minmax(60rem, 1fr); }
+.timeline-ruler, .track-row { min-width: calc(var(--track-head) + 88rem); display: grid; grid-template-columns: var(--track-head) minmax(88rem, 1fr); }
 .timeline-ruler { position: sticky; z-index: 9; top: 0; height: 2.3rem; border-bottom: 1px solid rgba(16,42,67,.24); background: #102a43; color: #fff4d6; }
 .ruler-corner { position: sticky; z-index: 11; left: 0; display: grid; place-items: center; background: #102a43; font-size: .68rem; letter-spacing: .08em; }
 .timeline-ruler > div { display: grid; grid-template-columns: repeat(8, 1fr); }
@@ -51,14 +51,15 @@
 .drum-row { display: grid; grid-template-columns: 4rem 1fr; align-items: center; gap: .4rem; }
 .drum-name { font-size: .68rem; font-weight: 700; }
 .beat-cells { display: grid; grid-template-columns: repeat(32, 1fr); gap: 2px; }
-.drum-cell { aspect-ratio: 1; min-width: 0; border: 1px solid rgba(16,42,67,.25); border-radius: .15rem; background: rgba(255,255,255,.45); cursor: pointer; }
+.drum-cell { position: relative; aspect-ratio: 1; min-width: 2.75rem; min-height: 2.75rem; border: 1px solid rgba(16,42,67,.25); border-radius: .15rem; background: rgba(255,255,255,.45); cursor: pointer; }
 .drum-cell[aria-pressed='true'] { border-color: #102a43; background: #ef765d; box-shadow: inset 0 0 0 2px rgba(255,244,214,.55); }
+.drum-cell[aria-pressed='true']::after { content: '✓'; font-weight: 900; }
 
 .piano-roll { position: relative; display: grid; grid-template-columns: 2.5rem 1fr; min-height: 9.5rem; }
 .pitch-ruler { padding: .35rem; background: rgba(16,42,67,.08); font-size: .62rem; line-height: 4.4; text-align: right; }
 .piano-canvas { position: relative; min-height: 9.5rem; background: repeating-linear-gradient(0deg, rgba(16,42,67,.08) 0 1px, transparent 1px 1.25rem); }
 .piano-add-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(32, 1fr); }
-.piano-add-grid button { min-width: 0; border: 0; border-left: 1px solid rgba(16,42,67,.08); padding: 0; background: transparent; cursor: crosshair; }
+.piano-add-grid button { min-width: 2.75rem; min-height: 2.75rem; border: 0; border-left: 1px solid rgba(16,42,67,.08); padding: 0; background: transparent; cursor: crosshair; }
 .piano-add-grid button:hover, .piano-add-grid button:focus-visible { background: rgba(255,216,107,.28); }
 .piano-note { position: absolute; display: flex; align-items: center; height: 1.05rem; overflow: hidden; border: 1px solid rgba(16,42,67,.55); border-radius: .2rem; padding: 0 .2rem; background: #7f88bd; color: #102a43; cursor: grab; font-size: .58rem; font-weight: 800; }
 .piano-roll--bass .piano-note { background: #e7c55f; }
@@ -88,7 +89,18 @@
 .beat-focus::before { content: ''; position: absolute; top: 0; left: -5px; width: 8px; height: 8px; transform: rotate(45deg); background: #102a43; }
 .beat-focus span { position: absolute; top: .55rem; left: .45rem; width: max-content; border-radius: .3rem; padding: .25rem .4rem; color: #fff4d6; background: #102a43; font-size: .64rem; font-weight: 800; }
 
-@media (max-width: 760px) {
+.storage-recovery-banner { max-width: 96rem; margin: 0 auto 1rem; border-radius: .8rem; background: #8f3f3b; }
+
+@media (max-width: 1280px) {
+  .studio-page { padding-inline: 1.25rem; }
+}
+
+@media (max-width: 1024px) {
+  .studio-workspace { display: block; }
+  .rule-inspector { margin-top: 1rem; }
+}
+
+@media (max-width: 768px) {
   .studio-page { --track-head: 7rem; padding: 1rem .75rem 3rem; }
   .studio-masthead { align-items: start; flex-direction: column; gap: .4rem; }
   .studio-masthead p { display: none; }
@@ -103,5 +115,12 @@
   .track-row { display: none; }
   .track-row[data-active='true'] { display: grid; min-height: 13rem; }
   .rule-inspector { margin-top: .8rem; }
-  .timeline-ruler, .track-row { min-width: 66rem; }
+  .timeline-ruler, .track-row { min-width: calc(var(--track-head) + 88rem); }
+  .timeline-shell { overscroll-behavior-inline: contain; }
+}
+
+@media (max-width: 480px) {
+  .studio-page { padding-inline: .5rem; }
+  .transport-main { width: 100%; justify-content: space-between; }
+  .mobile-track-switcher { position: sticky; z-index: 18; top: 8.5rem; background: #f6ecd7; }
 }

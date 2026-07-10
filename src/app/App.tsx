@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { AudioProvider } from '../audio/AudioProvider';
 import { useProgressStore } from '../stores/useProgressStore';
+import { ErrorBoundary } from '../shared/ErrorBoundary';
+import { LoadingState } from '../shared/LoadingState';
 import { AppRoutes } from './routes';
 
 export function App() {
@@ -12,17 +14,14 @@ export function App() {
   }, [hydrate, hydrated]);
 
   if (!hydrated) {
-    return (
-      <main aria-busy="true" aria-label="正在载入拾音岛" className="app-loading" role="status">
-        <strong>拾音岛</strong>
-        <span>正在展开你的声音海图</span>
-      </main>
-    );
+    return <LoadingState label="正在载入拾音岛" />;
   }
 
   return (
-    <AudioProvider>
-      <AppRoutes />
-    </AudioProvider>
+    <ErrorBoundary>
+      <AudioProvider>
+        <AppRoutes />
+      </AudioProvider>
+    </ErrorBoundary>
   );
 }

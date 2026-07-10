@@ -98,6 +98,16 @@ it('saves before exiting', async () => {
   expect(localStorage.getItem(`musicstudy:lesson:${lesson.id}`)).not.toBeNull();
 });
 
+it('tabs from the exit action into the primary lesson interaction', async () => {
+  const user = userEvent.setup();
+  render(<LessonPage lesson={lesson} onExit={vi.fn()} />);
+
+  await user.tab();
+  expect(screen.getByRole('button', { name: '退出课程' })).toHaveFocus();
+  await user.tab();
+  expect(screen.getByRole('button', { name: 'C4' })).toHaveFocus();
+});
+
 it('clears a full original scale answer on variant switch and completes the real variant', async () => {
   const user = userEvent.setup();
   const scaleStep = scaleCMajorLesson.steps.find((step) => step.type === 'scaleBuild')!;

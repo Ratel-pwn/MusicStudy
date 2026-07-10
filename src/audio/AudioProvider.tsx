@@ -1,5 +1,6 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { AudioEngine, type AudioStatus, type MusicAudioEngine } from './AudioEngine';
+import { AudioRecoveryBanner } from '../shared/AudioRecoveryBanner';
 
 export type AudioContextValue = {
   engine: MusicAudioEngine;
@@ -39,13 +40,7 @@ export function AudioProvider({ children }: PropsWithChildren) {
 
   return (
     <AudioContext.Provider value={value}>
-      {status === 'failed' && (
-        <div role="alert">
-          <button type="button" onClick={() => void unlock()}>
-            声音暂不可用，重试
-          </button>
-        </div>
-      )}
+      <AudioRecoveryBanner status={status} onRetry={unlock} />
       {children}
     </AudioContext.Provider>
   );

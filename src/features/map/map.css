@@ -296,12 +296,28 @@
   transform: translateX(-50%);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1280px) {
+  .archipelago-chart { --map-scale: 0.9; }
+}
+
+@media (max-width: 1024px) {
+  .map-heading { max-width: 28rem; }
+  .map-legend { max-width: 24rem; flex-wrap: wrap; justify-content: flex-end; }
+}
+
+@media (max-width: 768px) {
   .map-heading { top: 1rem; }
   .map-heading h1 { font-size: 3rem; }
   .map-heading span { max-width: 17rem; }
   .map-legend { top: auto; right: 1rem; bottom: 1rem; left: 1rem; justify-content: space-around; }
   .archipelago-chart { --map-scale: 0.78; }
+}
+
+@media (max-width: 480px) {
+  .map-heading h1 { font-size: 2.6rem; }
+  .map-legend { gap: .5rem; padding: .55rem; }
+  .map-legend span { font-size: .64rem; }
+  .archipelago-chart { --map-scale: 0.68; }
 }
 
 @media (prefers-reduced-motion: reduce) {

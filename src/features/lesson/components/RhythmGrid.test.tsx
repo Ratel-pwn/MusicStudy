@@ -30,6 +30,17 @@ it('selects a value and places it on a beat with the keyboard', async () => {
   expect(onChange).toHaveBeenCalledWith([null, 'eighth', null, null]);
 });
 
+it('places the selected rhythm with Space', async () => {
+  const user = userEvent.setup();
+  const onChange = vi.fn();
+  render(<RhythmGrid value={[]} onChange={onChange} />);
+
+  screen.getByRole('button', { name: '第 1 拍，空' }).focus();
+  await user.keyboard(' ');
+
+  expect(onChange).toHaveBeenCalledWith(['quarter', null, null, null]);
+});
+
 it('renders the requested number of rhythm cells', () => {
   render(<RhythmGrid length={6} value={[]} onChange={vi.fn()} />);
 

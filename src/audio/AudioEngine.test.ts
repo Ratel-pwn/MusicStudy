@@ -269,7 +269,8 @@ describe('AudioProvider', () => {
     await user.click(screen.getByRole('button', { name: 'unlock' }));
 
     expect(screen.getByText('failed')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '声音暂不可用，重试' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新启用声音' })).toBeInTheDocument();
+    expect(screen.getByText('声音暂时不可用，你仍可继续学习。')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'retry consumer' })).toBeInTheDocument();
   });
 
@@ -281,10 +282,10 @@ describe('AudioProvider', () => {
     await user.click(screen.getByRole('button', { name: 'unlock' }));
 
     expect(screen.getByText('failed')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '声音暂不可用，重试' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重新启用声音' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'retry consumer' })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '声音暂不可用，重试' }));
+    await user.click(screen.getByRole('button', { name: '重新启用声音' }));
     expect(screen.getByText('ready')).toBeInTheDocument();
     expect(tone.start).toHaveBeenCalledTimes(2);
   });

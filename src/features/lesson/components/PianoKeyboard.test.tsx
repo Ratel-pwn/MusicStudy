@@ -26,6 +26,17 @@ it('moves across keys and plays the focused note from the keyboard', async () =>
   expect(onPlay).toHaveBeenCalledWith(61);
 });
 
+it('plays a focused key with Space', async () => {
+  const user = userEvent.setup();
+  const onPlay = vi.fn();
+  render(<PianoKeyboard value={[]} onPlay={onPlay} onChange={vi.fn()} />);
+
+  screen.getByRole('button', { name: 'C4' }).focus();
+  await user.keyboard(' ');
+
+  expect(onPlay).toHaveBeenCalledWith(60);
+});
+
 it('renders a specified cross-octave MIDI collection', () => {
   render(<PianoKeyboard midis={[48, 59, 60, 72, 84]} value={[]} onPlay={vi.fn()} onChange={vi.fn()} />);
 

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { Waveform } from '@phosphor-icons/react';
 import gsap from 'gsap';
@@ -6,6 +6,8 @@ import type { Composition, TrackKind } from '../../domain/music/types';
 import { evaluateComposition } from '../../domain/music/composition';
 import { compositionRepository } from '../../data/repositories';
 import { useAudio } from '../../audio/useAudio';
+import { useAutosaveRecovery } from '../../shared/useAutosaveRecovery';
+import { useReducedMotion } from '../../shared/useReducedMotion';
 import { ChordLane } from './components/ChordLane';
 import { DrumSequencer } from './components/DrumSequencer';
 import { PianoRoll } from './components/PianoRoll';
@@ -38,6 +40,7 @@ const isTrackKind = (value: string | null): value is TrackKind => TRACKS.some((t
 export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
   const rootRef = useRef<HTMLElement>(null);
   const { engine, unlock } = useAudio();
+  const reducedMotion = useReducedMotion();
   const [store] = useState(() => {
     const next = createStudioStore({ ...DEFAULT_COMPOSITION, id: compositionId ?? DEFAULT_COMPOSITION.id });
     const rememberedTrack = localStorage.getItem(STUDIO_TRACK_KEY);
@@ -53,10 +56,9 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const context = gsap.context(() => {
       const rows = gsap.utils.toArray<HTMLElement>('.track-row', root);
-      if (reduced) {
+      if (reducedMotion) {
         gsap.set(rows, { opacity: 1, y: 0 });
         return;
       }
@@ -69,7 +71,7 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
       });
     }, root);
     return () => context.revert();
-  }, []);
+  }, [reducedMotion]);
 
   useEffect(() => {
     let active = true;
@@ -85,15 +87,17 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
     return () => { active = false; };
   }, [compositionId, store]);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    const timer = window.setTimeout(() => {
-      void compositionRepository.save(composition).then(() => {
-        localStorage.setItem(STUDIO_COMPOSITION_KEY, composition.id);
-      });
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [composition, hydrated]);
+  const saveComposition = useCallback(async (next: Composition) => {
+    const saved = await compositionRepository.save(next);
+    localStorage.setItem(STUDIO_COMPOSITION_KEY, next.id);
+    return saved;
+  }, []);
+  const autosave = useAutosaveRecovery({
+    enabled: hydrated,
+    fileName: `${composition.title || '临时作品'}.json`,
+    save: saveComposition,
+    value: composition,
+  });
 
   useEffect(() => {
     localStorage.setItem(STUDIO_TRACK_KEY, selectedTrack);
@@ -101,6 +105,7 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
 
   const play = async () => {
     await unlock();
+    if (engine.status !== 'ready') return;
     engine.playComposition(store.getState().composition);
     setPlaying(true);
   };
@@ -118,6 +123,14 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
         </div>
         <p>从节拍开始，让四条轨道在同一条时间线上相遇。</p>
       </div>
+
+      {autosave.error && (
+        <aside className="storage-recovery-banner" role="alert">
+          <span>作品暂未保存，临时版本仍保留在此设备的内存中。</span>
+          <button type="button" onClick={autosave.downloadSnapshot}>下载临时作品 JSON</button>
+          <button type="button" onClick={() => void autosave.retry()}>重试保存</button>
+        </aside>
+      )}
 
       <TransportBar onPlay={() => void play()} onStop={stop} playing={playing} store={store} />
 
