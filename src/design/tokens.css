@@ -10,4 +10,12 @@
   --radius-island: 42% 58% 54% 46% / 55% 44% 56% 45%;
   --beat-fast: 150ms;
   --beat-normal: 300ms;
+  --beat-slow: 700ms;
+  --paper: #fffaf0;
+  --sea-glow: #1a4863;
+  --display-font: 'Cabinet Grotesk', 'Noto Serif SC', 'Songti SC', serif;
+  --body-font: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  --shadow-float: 0 18px 50px rgba(4, 24, 38, 0.2);
+  --shell-height: 4.5rem;
+  --content-max: 90rem;
 }

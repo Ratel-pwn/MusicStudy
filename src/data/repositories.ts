@@ -77,6 +77,14 @@ export type CompleteReviewInput = {
 };
 
 export const reviewRepository = {
+  async all(): Promise<ReviewRecord[]> {
+    return db.reviews.toArray();
+  },
+
+  async due(asOf = new Date()): Promise<ReviewRecord[]> {
+    return db.reviews.where('dueAt').belowOrEqual(asOf.toISOString()).sortBy('dueAt');
+  },
+
   async complete(input: CompleteReviewInput): Promise<ReviewRecord> {
     return db.transaction('rw', db.reviews, async () => {
       const completedAt = input.completedAt ?? new Date();
@@ -97,6 +105,11 @@ export const reviewRepository = {
 const toComposition = ({ createdAt: _createdAt, updatedAt: _updatedAt, revision: _revision, ...composition }: CompositionRecord): Composition => composition;
 
 export const compositionRepository = {
+  async recent(): Promise<Composition | undefined> {
+    const record = await db.compositions.orderBy('updatedAt').last();
+    return record ? toComposition(record) : undefined;
+  },
+
   async save(composition: Composition): Promise<Composition> {
     await db.transaction('rw', db.compositions, async () => {
       const existing = await db.compositions.get(composition.id);

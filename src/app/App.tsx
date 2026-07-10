@@ -1,3 +1,19 @@
+import { useEffect } from 'react';
+import { AudioProvider } from '../audio/AudioProvider';
+import { useProgressStore } from '../stores/useProgressStore';
+import { AppRoutes } from './routes';
+
 export function App() {
-  return <main aria-label="拾音岛学习空间" />;
+  const hydrated = useProgressStore((state) => state.hydrated);
+  const hydrate = useProgressStore((state) => state.hydrate);
+
+  useEffect(() => {
+    if (!hydrated) void hydrate();
+  }, [hydrate, hydrated]);
+
+  return (
+    <AudioProvider>
+      <AppRoutes />
+    </AudioProvider>
+  );
 }

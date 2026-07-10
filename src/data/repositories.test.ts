@@ -3,6 +3,7 @@ import {
   attemptRepository,
   compositionRepository,
   progressRepository,
+  reviewRepository,
 } from './repositories';
 import { db } from './db';
 
@@ -102,5 +103,27 @@ describe('local repositories', () => {
       expect.objectContaining({ id: 'middle' }),
     ]);
     await expect(attemptRepository.recent()).resolves.toHaveLength(3);
+  });
+
+  it('lists review records and filters the reviews due by a given time', async () => {
+    await db.reviews.bulkPut([
+      { skillId: 'pitch', mastery: 48, intervalDays: 1, dueAt: '2026-07-10T00:00:00.000Z', consecutiveCorrect: 0 },
+      { skillId: 'rhythm', mastery: 72, intervalDays: 3, dueAt: '2026-07-14T00:00:00.000Z', consecutiveCorrect: 2 },
+    ]);
+
+    await expect(reviewRepository.all()).resolves.toHaveLength(2);
+    await expect(reviewRepository.due(new Date('2026-07-11T00:00:00.000Z'))).resolves.toEqual([
+      expect.objectContaining({ skillId: 'pitch' }),
+    ]);
+  });
+
+  it('returns the most recently updated composition for the home continuation', async () => {
+    await compositionRepository.save({ ...composition, id: 'older', title: '旧作品' });
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    await compositionRepository.save({ ...composition, id: 'newer', title: '港湾灯火' });
+
+    await expect(compositionRepository.recent()).resolves.toEqual(
+      expect.objectContaining({ id: 'newer', title: '港湾灯火' }),
+    );
   });
 });

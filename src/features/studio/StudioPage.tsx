@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { Waveform } from '@phosphor-icons/react';
+import gsap from 'gsap';
 import type { Composition, TrackKind } from '../../domain/music/types';
 import { evaluateComposition } from '../../domain/music/composition';
 import { compositionRepository } from '../../data/repositories';
@@ -34,7 +35,8 @@ const DEFAULT_COMPOSITION: Composition = {
 
 const isTrackKind = (value: string | null): value is TrackKind => TRACKS.some((track) => track.kind === value);
 
-export function StudioPage() {
+export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
+  const rootRef = useRef<HTMLElement>(null);
   const { engine, unlock } = useAudio();
   const [store] = useState(() => {
     const next = createStudioStore(DEFAULT_COMPOSITION);
@@ -48,9 +50,30 @@ export function StudioPage() {
   const [hydrated, setHydrated] = useState(false);
   const [playing, setPlaying] = useState(false);
 
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const context = gsap.context(() => {
+      const rows = gsap.utils.toArray<HTMLElement>('.track-row', root);
+      if (reduced) {
+        gsap.set(rows, { opacity: 1, y: 0 });
+        return;
+      }
+      gsap.fromTo(rows, { opacity: 0, y: 28 }, {
+        opacity: 1,
+        y: 0,
+        duration: 0.58,
+        stagger: 0.08,
+        ease: 'power2.out',
+      });
+    }, root);
+    return () => context.revert();
+  }, []);
+
   useEffect(() => {
     let active = true;
-    const id = localStorage.getItem(STUDIO_COMPOSITION_KEY);
+    const id = compositionId ?? localStorage.getItem(STUDIO_COMPOSITION_KEY);
     if (!id) {
       setHydrated(true);
       return () => { active = false; };
@@ -59,7 +82,7 @@ export function StudioPage() {
       if (active && restored) store.getState().replaceComposition(restored);
     }).finally(() => { if (active) setHydrated(true); });
     return () => { active = false; };
-  }, [store]);
+  }, [compositionId, store]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -86,7 +109,7 @@ export function StudioPage() {
   };
 
   return (
-    <main className="studio-page">
+    <main className="studio-page" ref={rootRef}>
       <div className="studio-masthead">
         <div>
           <span className="studio-kicker"><Waveform aria-hidden="true" /> 八小节创作台</span>
