@@ -320,7 +320,9 @@ const saved = await compositionRepository.save(composition);
 expect(saved.id).toBe(composition.id);
 expect(await compositionRepository.get(composition.id)).toEqual(composition);
 
-await progressRepository.completeLesson({ lessonId: 'pitch-01', score: 90, hints: 0 });
+await progressRepository.completeLesson({ lessonId: 'pitch-01', score: 90, hints: 0, completedVariant: false });
+expect((await progressRepository.get()).stars['pitch-01']).toBe(2);
+await progressRepository.completeLesson({ lessonId: 'pitch-01', score: 90, hints: 0, completedVariant: true });
 expect((await progressRepository.get()).stars['pitch-01']).toBe(3);
 ```
 
@@ -353,7 +355,7 @@ type ProgressState = {
   hydrated: boolean;
   progress: ProgressRecord;
   hydrate(): Promise<void>;
-  completeLesson(input: { lessonId: string; score: number; hints: number }): Promise<void>;
+  completeLesson(input: { lessonId: string; score: number; hints: number; completedVariant: boolean }): Promise<void>;
   recordAttempt(input: Omit<AttemptRecord, 'id'|'createdAt'>): Promise<void>;
 };
 ```

@@ -33,9 +33,14 @@ describe('useProgressStore', () => {
   });
 
   it('refreshes progress after completing a lesson', async () => {
-    await useProgressStore.getState().completeLesson({ lessonId: 'pitch-01', score: 90, hints: 0 });
+    await useProgressStore.getState().completeLesson({
+      lessonId: 'pitch-01',
+      score: 90,
+      hints: 0,
+      completedVariant: false,
+    });
 
-    expect(useProgressStore.getState().progress.stars['pitch-01']).toBe(3);
+    expect(useProgressStore.getState().progress.stars['pitch-01']).toBe(2);
   });
 
   it('records an attempt without changing the progress snapshot', async () => {

@@ -36,8 +36,26 @@ describe('local repositories', () => {
   });
 
   it('completes a lesson and keeps the best star result', async () => {
-    await progressRepository.completeLesson({ lessonId: 'pitch-01', score: 90, hints: 0 });
-    await progressRepository.completeLesson({ lessonId: 'pitch-01', score: 40, hints: 2 });
+    await progressRepository.completeLesson({
+      lessonId: 'pitch-01',
+      score: 90,
+      hints: 0,
+      completedVariant: false,
+    });
+    expect((await progressRepository.get()).stars['pitch-01']).toBe(2);
+
+    await progressRepository.completeLesson({
+      lessonId: 'pitch-01',
+      score: 90,
+      hints: 0,
+      completedVariant: true,
+    });
+    await progressRepository.completeLesson({
+      lessonId: 'pitch-01',
+      score: 40,
+      hints: 2,
+      completedVariant: false,
+    });
 
     const progress = await progressRepository.get();
     expect(progress.stars['pitch-01']).toBe(3);

@@ -1,4 +1,5 @@
 import type { Composition } from '../domain/music/types';
+import { calculateStars } from '../features/map/progression';
 import {
   db,
   type AttemptRecord,
@@ -7,7 +8,12 @@ import {
   type StarRating,
 } from './db';
 
-export type CompleteLessonInput = { lessonId: string; score: number; hints: number };
+export type CompleteLessonInput = {
+  lessonId: string;
+  score: number;
+  hints: number;
+  completedVariant: boolean;
+};
 export type NewAttempt = Omit<AttemptRecord, 'id' | 'createdAt'>;
 
 const defaultProgress = (): ProgressRecord => ({
@@ -18,14 +24,6 @@ const defaultProgress = (): ProgressRecord => ({
   unlockedLessonIds: [],
 });
 
-// Temporary private policy until the progression domain owns this calculation.
-const lessonStars = ({ score, hints }: CompleteLessonInput): StarRating => {
-  if (score >= 90 && hints === 0) return 3;
-  if (score >= 70) return 2;
-  if (score > 0) return 1;
-  return 0;
-};
-
 export const progressRepository = {
   async get(): Promise<ProgressRecord> {
     return (await db.progress.get('local')) ?? defaultProgress();
@@ -34,7 +32,10 @@ export const progressRepository = {
   async completeLesson(input: CompleteLessonInput): Promise<ProgressRecord> {
     return db.transaction('rw', db.progress, async () => {
       const current = await this.get();
-      const nextStars = Math.max(current.stars[input.lessonId] ?? 0, lessonStars(input)) as StarRating;
+      const nextStars = Math.max(
+        current.stars[input.lessonId] ?? 0,
+        calculateStars(input),
+      ) as StarRating;
       const next: ProgressRecord = {
         ...current,
         stars: { ...current.stars, [input.lessonId]: nextStars },
