@@ -160,6 +160,7 @@ describe('studio editors', () => {
 
 describe('StudioPage', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     storage.clear();
     vi.stubGlobal('localStorage', {
@@ -221,6 +222,19 @@ describe('StudioPage', () => {
     expect(repository.get).toHaveBeenCalledWith('remembered-song');
     expect(screen.getByRole('button', { name: '在移动端查看旋律轨' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: '旋律音符 A4，位于第 29 拍' })).toBeInTheDocument();
+  });
+
+  it('uses the route composition id when an empty record becomes a new draft', async () => {
+    vi.useFakeTimers();
+    repository.get.mockResolvedValue(undefined);
+    render(<StudioPage compositionId="new-piece" />);
+
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(500); });
+
+    expect(repository.get).toHaveBeenCalledWith('new-piece');
+    expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({ id: 'new-piece' }));
+    vi.useRealTimers();
   });
 
   it('persists selected track immediately for the next refresh', async () => {

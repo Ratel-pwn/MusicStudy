@@ -17,6 +17,67 @@ import { StudioPage } from '../features/studio/StudioPage';
 import { useProgressStore } from '../stores/useProgressStore';
 import { AppShell } from './AppShell';
 
+type HomeStorage = Pick<Storage, 'length' | 'key' | 'getItem'>;
+
+type HomeRouteStateInput = {
+  progress: ReturnType<typeof useProgressStore.getState>['progress'];
+  recentComposition?: Composition;
+  storage?: HomeStorage;
+};
+
+export type HomeRouteState = {
+  returning: boolean;
+  currentLessonId?: string;
+  currentLessonTitle?: string;
+  foundationComplete: boolean;
+};
+
+function unfinishedLessonId(storage?: HomeStorage): string | undefined {
+  try {
+    const source = storage ?? globalThis.localStorage;
+    if (!source) return undefined;
+    const candidateKeys = new Set<string>();
+    for (let index = 0; index < source.length; index += 1) {
+      const key = source.key(index);
+      if (key?.startsWith('musicstudy:lesson:')) candidateKeys.add(key);
+    }
+    lessons.forEach((lesson) => candidateKeys.add(`musicstudy:lesson:${lesson.id}`));
+    for (const key of candidateKeys) {
+      const raw = source.getItem(key);
+      if (!raw) continue;
+      try {
+        const session = JSON.parse(raw) as { lessonId?: string; stepIndex?: number };
+        const lessonId = session.lessonId ?? key.slice('musicstudy:lesson:'.length);
+        const lesson = getLesson(lessonId);
+        if (lesson && typeof session.stepIndex === 'number' && session.stepIndex < lesson.steps.length) return lessonId;
+      } catch {
+        // Ignore damaged drafts; LessonPage applies the same safe fallback.
+      }
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+export function deriveHomeRouteState({ progress, recentComposition, storage }: HomeRouteStateInput): HomeRouteState {
+  const draftLessonId = unfinishedLessonId(storage);
+  const foundationComplete = lessons.every((lesson) => (progress.stars[lesson.id] ?? 0) > 0);
+  const unlocked = unlockedLessonIds(worlds, progress.stars);
+  const currentLesson = draftLessonId
+    ? getLesson(draftLessonId)
+    : foundationComplete
+      ? undefined
+      : lessons.find((lesson) => unlocked.includes(lesson.id) && !progress.stars[lesson.id]) ?? lessons[0];
+  const hasProgress = progress.xp > 0 || Object.values(progress.stars).some((stars) => stars > 0);
+  return {
+    returning: hasProgress || Boolean(recentComposition) || Boolean(draftLessonId),
+    currentLessonId: currentLesson?.id,
+    currentLessonTitle: currentLesson?.title,
+    foundationComplete,
+  };
+}
+
 function useAsyncValue<T>(load: () => Promise<T>, initial: T) {
   const [value, setValue] = useState(initial);
   useEffect(() => {
@@ -29,17 +90,19 @@ function useAsyncValue<T>(load: () => Promise<T>, initial: T) {
 
 function HomeRoute() {
   const progress = useProgressStore((state) => state.progress);
-  const returning = progress.xp > 0 || Object.keys(progress.stars).length > 0;
-  const unlocked = unlockedLessonIds(worlds, progress.stars);
-  const currentLesson = lessons.find((lesson) => unlocked.includes(lesson.id) && !progress.stars[lesson.id]) ?? lessons[0];
   const loadRecent = useMemo(() => () => compositionRepository.recent(), []);
-  const recentComposition = useAsyncValue<Composition | undefined>(loadRecent, undefined);
+  const recentComposition = useAsyncValue<Composition | undefined | null>(loadRecent, null);
+  if (recentComposition === null) {
+    return <main aria-busy="true" aria-label="正在读取学习航迹" className="app-loading" role="status">正在读取学习航迹</main>;
+  }
+  const state = deriveHomeRouteState({ progress, recentComposition });
   return (
     <HomePage
-      currentLessonId={currentLesson.id}
-      currentLessonTitle={currentLesson.title}
+      currentLessonId={state.currentLessonId}
+      currentLessonTitle={state.currentLessonTitle}
+      foundationComplete={state.foundationComplete}
       recentComposition={recentComposition}
-      returning={returning}
+      returning={state.returning}
     />
   );
 }

@@ -39,7 +39,7 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
   const rootRef = useRef<HTMLElement>(null);
   const { engine, unlock } = useAudio();
   const [store] = useState(() => {
-    const next = createStudioStore(DEFAULT_COMPOSITION);
+    const next = createStudioStore({ ...DEFAULT_COMPOSITION, id: compositionId ?? DEFAULT_COMPOSITION.id });
     const rememberedTrack = localStorage.getItem(STUDIO_TRACK_KEY);
     if (isTrackKind(rememberedTrack)) next.getState().setSelectedTrack(rememberedTrack);
     return next;
@@ -79,7 +79,8 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
       return () => { active = false; };
     }
     void compositionRepository.get(id).then((restored) => {
-      if (active && restored) store.getState().replaceComposition(restored);
+      if (!active) return;
+      store.getState().replaceComposition(restored ?? { ...DEFAULT_COMPOSITION, id });
     }).finally(() => { if (active) setHydrated(true); });
     return () => { active = false; };
   }, [compositionId, store]);

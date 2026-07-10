@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowRight, Play, Waveform } from '@phosphor-icons/react';
 import gsap from 'gsap';
 import { Link } from 'react-router-dom';
@@ -21,6 +21,7 @@ type HomePageProps = {
   returning?: boolean;
   currentLessonId?: string;
   currentLessonTitle?: string;
+  foundationComplete?: boolean;
   recentComposition?: Composition;
 };
 
@@ -28,11 +29,14 @@ export function HomePage({
   returning = false,
   currentLessonId = 'pitch-high-low',
   currentLessonTitle = '听见高与低',
+  foundationComplete = false,
   recentComposition,
 }: HomePageProps) {
   const rootRef = useRef<HTMLElement>(null);
   const { engine, status, unlock } = useAudio();
   const [heardMiddleC, setHeardMiddleC] = useState(false);
+  const melodyTimers = useRef<number[]>([]);
+  const mounted = useRef(true);
   const lessonTitle = currentLessonTitle === '听见高与低'
     ? (getLesson(currentLessonId)?.title ?? currentLessonTitle)
     : currentLessonTitle;
@@ -57,11 +61,21 @@ export function HomePage({
     return () => context.revert();
   }, [heardMiddleC, returning]);
 
+  useEffect(() => () => {
+    mounted.current = false;
+    melodyTimers.current.forEach((timer) => window.clearTimeout(timer));
+    melodyTimers.current = [];
+  }, []);
+
   const playKey = async (midi: number) => {
     if (status !== 'ready') await unlock();
+    if (!mounted.current) return;
     engine.playMidi(midi, 1.2, 0.88);
     if (midi !== 60) return;
-    engine.previewChord([64, 67, 72]);
+    melodyTimers.current.forEach((timer) => window.clearTimeout(timer));
+    melodyTimers.current = [64, 67, 72].map((responseMidi, index) => window.setTimeout(() => {
+      if (mounted.current) engine.playMidi(responseMidi, 0.8, 0.8);
+    }, (index + 1) * 240));
     setHeardMiddleC(true);
   };
 
@@ -71,12 +85,19 @@ export function HomePage({
         <section className="returning-horizon home-reveal">
           <div>
             <p className="home-eyebrow">海图保留着上次的航迹</p>
-            <h1>从熟悉的声音接着走</h1>
+            <h1>{foundationComplete ? '基础航线已完成' : '从熟悉的声音接着走'}</h1>
           </div>
           <div className="continuation-staves">
-            <Link className="continuation-line" to={`/lesson/${currentLessonId}`}>
-              <span>当前课程</span><strong>继续{lessonTitle}</strong><ArrowRight aria-hidden="true" />
-            </Link>
+            {foundationComplete ? (
+              <>
+                <Link className="continuation-line" to="/practice"><strong>进入今日练习</strong><ArrowRight aria-hidden="true" /></Link>
+                <Link className="continuation-line" to="/studio/studio-draft"><strong>打开八小节创作台</strong><ArrowRight aria-hidden="true" /></Link>
+              </>
+            ) : (
+              <Link className="continuation-line" to={`/lesson/${currentLessonId}`}>
+                <span>当前课程</span><strong>继续{lessonTitle}</strong><ArrowRight aria-hidden="true" />
+              </Link>
+            )}
             {recentComposition && (
               <Link className="continuation-line continuation-line--composition" to={`/studio/${recentComposition.id}`}>
                 <span>{recentComposition.bpm} BPM · {recentComposition.bars} 小节</span>
