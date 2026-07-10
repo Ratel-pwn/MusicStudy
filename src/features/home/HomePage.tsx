@@ -61,10 +61,13 @@ export function HomePage({
     return () => context.revert();
   }, [heardMiddleC, returning]);
 
-  useEffect(() => () => {
-    mounted.current = false;
-    melodyTimers.current.forEach((timer) => window.clearTimeout(timer));
-    melodyTimers.current = [];
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      melodyTimers.current.forEach((timer) => window.clearTimeout(timer));
+      melodyTimers.current = [];
+    };
   }, []);
 
   const playKey = async (midi: number) => {

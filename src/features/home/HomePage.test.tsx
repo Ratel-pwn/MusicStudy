@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
+import { StrictMode } from 'react';
 import type { Composition } from '../../domain/music/types';
 import { HomePage } from './HomePage';
 
@@ -68,6 +69,31 @@ describe('HomePage', () => {
 
     unmount();
     act(() => { vi.advanceTimersByTime(240); });
+    expect(audio.engine.playMidi.mock.calls.map(([midi]) => midi)).toEqual([60, 64, 67, 72, 60]);
+    vi.useRealTimers();
+  });
+
+  it('plays and reveals the first-listen sequence through StrictMode effect replay', async () => {
+    vi.useFakeTimers();
+    audio.engine.playMidi.mockClear();
+    const { unmount } = render(
+      <StrictMode>
+        <MemoryRouter>
+          <HomePage />
+        </MemoryRouter>
+      </StrictMode>,
+    );
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '播放中央 C' })); });
+    expect(audio.engine.playMidi.mock.calls.map(([midi]) => midi)).toEqual([60]);
+    expect(screen.getByRole('link', { name: '沿着声音出发' })).toBeInTheDocument();
+
+    act(() => { vi.advanceTimersByTime(720); });
+    expect(audio.engine.playMidi.mock.calls.map(([midi]) => midi)).toEqual([60, 64, 67, 72]);
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: '播放中央 C' })); });
+    unmount();
+    act(() => { vi.advanceTimersByTime(720); });
     expect(audio.engine.playMidi.mock.calls.map(([midi]) => midi)).toEqual([60, 64, 67, 72, 60]);
     vi.useRealTimers();
   });
