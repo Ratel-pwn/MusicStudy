@@ -22,3 +22,13 @@ it('moves through chord tones and adds one from the keyboard', async () => {
   await user.keyboard('{ArrowRight}{Enter}');
   expect(onChange).toHaveBeenCalledWith(['D']);
 });
+
+it('clears a full chord from the keyboard', async () => {
+  const user = userEvent.setup();
+  const onChange = vi.fn();
+  render(<ChordBuilder value={['C', 'E', 'G']} onChange={onChange} />);
+
+  screen.getByRole('button', { name: '清空已选音符' }).focus();
+  await user.keyboard('{Enter}');
+  expect(onChange).toHaveBeenCalledWith([]);
+});

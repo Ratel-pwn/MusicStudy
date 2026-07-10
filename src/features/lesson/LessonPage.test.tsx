@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, vi } from 'vitest';
 import type { Lesson } from '../../content/schema';
+import { scaleCMajorLesson } from '../../content/lessons/scale-c-major';
 import { createLessonSession } from './lessonEngine';
 import { LessonPage } from './LessonPage';
 
@@ -95,4 +96,33 @@ it('saves before exiting', async () => {
 
   expect(onExit).toHaveBeenCalledOnce();
   expect(localStorage.getItem(`musicstudy:lesson:${lesson.id}`)).not.toBeNull();
+});
+
+it('clears a full original scale answer on variant switch and completes the real variant', async () => {
+  const user = userEvent.setup();
+  const scaleStep = scaleCMajorLesson.steps.find((step) => step.type === 'scaleBuild')!;
+  const focusedLesson: Lesson = { ...scaleCMajorLesson, id: 'scale-variant-ui', steps: [scaleStep] };
+  render(<LessonPage lesson={focusedLesson} onExit={vi.fn()} />);
+
+  for (let count = 0; count < 8; count += 1) {
+    await user.click(screen.getByRole('button', { name: '添加 C' }));
+  }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await user.click(screen.getByRole('button', { name: '提交答案' }));
+    await user.click(screen.getByRole('button', { name: '再试一次' }));
+  }
+
+  expect(screen.getByText(/（变式）/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '提交答案' })).toBeDisabled();
+
+  for (const note of ['D', 'E', 'F#', 'G', 'A', 'B', 'C#', 'D']) {
+    await user.click(screen.getByRole('button', { name: `添加 ${note}` }));
+  }
+  await user.click(screen.getByRole('button', { name: '提交答案' }));
+  await user.click(screen.getByRole('button', { name: '继续' }));
+
+  expect(progress.completeLesson).toHaveBeenCalledWith(expect.objectContaining({
+    lessonId: focusedLesson.id,
+    completedVariant: true,
+  }));
 });

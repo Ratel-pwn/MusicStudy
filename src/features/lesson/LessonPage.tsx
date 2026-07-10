@@ -182,6 +182,10 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
   const Renderer = step ? stepRenderers[step.type] : null;
 
   useEffect(() => {
+    setAnswer(undefined);
+  }, [step?.id]);
+
+  useEffect(() => {
     if (session.stepIndex < lesson.steps.length) {
       localStorage.setItem(storageKey(lesson.id), JSON.stringify(session));
     }

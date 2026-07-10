@@ -22,3 +22,14 @@ it('moves through note choices and adds one from the keyboard', async () => {
   await user.keyboard('{ArrowRight}{Enter}');
   expect(onChange).toHaveBeenCalledWith(['D']);
 });
+
+it('removes a full answer item with the pointer so a replacement can be added', async () => {
+  const user = userEvent.setup();
+  const onChange = vi.fn();
+  render(<ScaleBuilder value={['C', 'D', 'E', 'F', 'G', 'A', 'B', 'D']} onChange={onChange} />);
+
+  await user.click(screen.getByRole('button', { name: '移除第 8 个 D' }));
+  expect(onChange).toHaveBeenLastCalledWith(['C', 'D', 'E', 'F', 'G', 'A', 'B']);
+  await user.click(screen.getByRole('button', { name: '添加 C' }));
+  expect(onChange).toHaveBeenLastCalledWith(['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C']);
+});

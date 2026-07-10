@@ -27,6 +27,15 @@ export function NoteBuilder({ ariaLabel, value, onChange, maxNotes, availableNot
     setNotes(next);
     onChange(next);
   };
+  const remove = (index: number) => {
+    const next = notes.filter((_, noteIndex) => noteIndex !== index);
+    setNotes(next);
+    onChange(next);
+  };
+  const clear = () => {
+    setNotes([]);
+    onChange([]);
+  };
   const navigate = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
@@ -39,12 +48,22 @@ export function NoteBuilder({ ariaLabel, value, onChange, maxNotes, availableNot
       <div className="mb-7 flex min-h-28 items-center justify-center gap-3 rounded-[2rem] border-2 border-dashed border-[#102a43]/40 bg-[#fffaf0]/70 px-5">
         {notes.length === 0 ? <span className="text-[#102a43]/60">从音名中选择</span> : notes.map((note, index) => (
           <div className="flex items-center gap-3" key={`${note}-${index}`}>
-            <span className="grid size-14 place-items-center rounded-full bg-[#102a43] font-serif text-xl font-bold text-[#fff4d6]">{note}</span>
+            <button
+              aria-label={`移除第 ${index + 1} 个 ${note}`}
+              className="grid size-14 place-items-center rounded-full bg-[#102a43] font-serif text-xl font-bold text-[#fff4d6] transition hover:bg-[#ef765d]"
+              onClick={() => remove(index)}
+              type="button"
+            >{note}</button>
             {index > 0 && <span className="text-sm font-bold text-[#4eaa94]">{upwardSemitones(notes[0], note)} 半音</span>}
           </div>
         ))}
       </div>
       {notes.length > 1 && <p className="mb-5 text-center font-bold text-[#102a43]">{notes[0]} → {notes.at(-1)} · {upwardSemitones(notes[0], notes.at(-1)!)} 半音</p>}
+      {notes.length > 0 && (
+        <button className="mx-auto mb-5 block rounded-full border-2 border-[#102a43] px-4 py-2 text-sm font-bold text-[#102a43]" onClick={clear} type="button">
+          清空已选音符
+        </button>
+      )}
       <div className="flex flex-wrap justify-center gap-3">
         {availableNotes.map((note, index) => (
           <button
