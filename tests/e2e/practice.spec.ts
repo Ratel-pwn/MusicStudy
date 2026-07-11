@@ -1,4 +1,4 @@
-import { expect, resetApp, test } from './helpers';
+import { expect, resetApp, selectCorrectVisibleAuthoredChoice, test } from './helpers';
 
 test('完成六项今日练习并更新复习日期', async ({ page }) => {
   await resetApp(page);
@@ -45,13 +45,7 @@ test('完成六项今日练习并更新复习日期', async ({ page }) => {
   await page.goto('/practice');
   await expect(page.getByText('0 / 6 已完成')).toBeVisible();
   for (let index = 0; index < 6; index += 1) {
-    for (const answer of ['C–E–G', 'C4', '逐级白键', '稳定', '更高']) {
-      const option = page.locator('.focus-task [role="group"]').getByRole('button', { name: answer, exact: true });
-      if (await option.count()) {
-        await option.click();
-        break;
-      }
-    }
+    await selectCorrectVisibleAuthoredChoice(page);
     await page.getByRole('button', { name: '提交答案' }).click();
     await page.getByRole('button', { name: '继续' }).click();
     await expect(page.getByText(`${index + 1} / 6 已完成`)).toBeVisible();

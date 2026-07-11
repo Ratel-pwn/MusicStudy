@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { lessons } from '../../src/content/worlds';
+import type { LessonStep } from '../../src/content/schema';
+import { getAudioChoiceCandidates } from '../../src/features/lesson/audioChoice';
 
 export { expect, test };
 
@@ -44,7 +47,46 @@ export async function continueGuidedStep(page: Page) {
   await continueButton.click();
 }
 
+function authoredChoices(step: LessonStep) {
+  return Array.isArray(step.config.choices) ? step.config.choices : [];
+}
+
+export async function selectCorrectAuthoredChoice(page: Page, step: LessonStep) {
+  const answer = step.config.answer;
+  const candidates = getAudioChoiceCandidates(step);
+
+  if (step.config.audioOptions !== undefined) {
+    const group = page.getByRole('group', { name: '听辨候选' });
+    const buttons = group.getByRole('button');
+    for (const choice of authoredChoices(step)) {
+      const escapedChoice = String(choice).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      await expect(group.getByRole('button', { name: new RegExp(escapedChoice) })).toHaveCount(0);
+    }
+    await expect(buttons).toHaveCount(candidates.length);
+    const correct = candidates.find(({ choice }) => Object.is(choice, answer));
+    expect(correct, `Missing candidate for authored answer in ${step.id}`).toBeDefined();
+    await group.getByRole('button', { name: `试听并选择候选 ${correct!.label}`, exact: true }).click();
+    return;
+  }
+
+  await page.getByRole('button', { name: String(answer), exact: true }).click();
+}
+
+export async function selectCorrectVisibleAuthoredChoice(page: Page) {
+  const focusTask = page.locator('.focus-task');
+  for (const step of lessons.flatMap((lesson) => lesson.steps)) {
+    if (step.type === 'choice' && await focusTask.getByText(step.prompt, { exact: true }).isVisible()) {
+      await selectCorrectAuthoredChoice(page, step);
+      return;
+    }
+  }
+  throw new Error('No visible authored choice prompt matched the current practice item.');
+}
+
 export async function completeHighLowLesson(page: Page) {
+  const lesson = lessons.find(({ id }) => id === 'pitch-high-low');
+  const listeningChoice = lesson?.steps.find((step) => step.type === 'choice');
+  expect(listeningChoice).toBeDefined();
   await page.getByRole('button', { name: '播放示范' }).click();
   await continueGuidedStep(page);
   await expect(page.getByRole('img', { name: '音高由低向高移动的竖直轨迹' })).toBeVisible();
@@ -53,7 +95,7 @@ export async function completeHighLowLesson(page: Page) {
   await page.getByRole('button', { name: 'C3' }).click();
   await page.getByRole('button', { name: 'C5' }).click();
   await submitCorrect(page);
-  await page.getByRole('button', { name: '更高', exact: true }).click();
+  await selectCorrectAuthoredChoice(page, listeningChoice!);
   await submitCorrect(page);
   for (const note of ['C4', 'C5', 'C3']) await page.getByRole('button', { name: note }).click();
   await submitCorrect(page);
