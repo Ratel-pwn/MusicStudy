@@ -67,8 +67,7 @@ it('completes through the renderer registry and persists the real variant result
   expect(screen.getByText('听一次收束')).toBeInTheDocument();
 
   await user.click(screen.getByRole('button', { name: '播放示范' }));
-  await user.click(screen.getByRole('button', { name: '提交答案' }));
-  await user.click(screen.getByRole('button', { name: '继续' }));
+  await user.click(screen.getByRole('button', { name: '继续课程' }));
 
   expect(progress.completeLesson).toHaveBeenCalledWith(expect.objectContaining({
     lessonId: lesson.id,
@@ -85,6 +84,32 @@ it('restores the saved step after leaving and returning', () => {
 
   expect(screen.getByText('听一次收束')).toBeInTheDocument();
   expect(screen.getByText('2 / 2')).toBeInTheDocument();
+});
+
+it('gives listening steps a clear continuation without presenting an empty answer state', async () => {
+  const user = userEvent.setup();
+  const guidedLesson: Lesson = {
+    ...lesson,
+    id: 'guided-listening-test',
+    steps: [
+      { id: 'listen-first', type: 'listen', prompt: '先听两枚音', skillIds: ['pitch'], config: { sequence: ['C4', 'G4'] }, feedback: {} },
+      { id: 'observe-next', type: 'explain', prompt: '观察音高轨迹', skillIds: ['pitch'], config: {}, feedback: {} },
+    ],
+  };
+  render(<LessonPage lesson={guidedLesson} onExit={vi.fn()} />);
+
+  expect(screen.queryByRole('button', { name: '提交答案' })).not.toBeInTheDocument();
+  expect(screen.getByText('聆听示范 · 无需选择')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '播放后继续' })).toBeDisabled();
+
+  await user.click(screen.getByRole('button', { name: '播放示范' }));
+  expect(screen.getByRole('button', { name: '继续课程' })).toBeEnabled();
+  await user.click(screen.getByRole('button', { name: '继续课程' }));
+
+  expect(screen.getByText('观察音高轨迹')).toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByText('观察讲解 · 无需选择')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '确认理解后继续' })).toBeDisabled();
 });
 
 it('saves before exiting', async () => {

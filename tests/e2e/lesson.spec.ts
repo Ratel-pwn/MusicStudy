@@ -1,4 +1,4 @@
-import { completeHighLowLesson, expect, resetApp, test } from './helpers';
+import { completeHighLowLesson, continueGuidedStep, expect, resetApp, test } from './helpers';
 
 test('完成课程并获得星级', async ({ page }) => {
   await resetApp(page, '/lesson/pitch-high-low');
@@ -12,11 +12,9 @@ test('完成课程并获得星级', async ({ page }) => {
 test('三次错误提示后完成变式题', async ({ page }) => {
   await resetApp(page, '/lesson/pitch-high-low');
   await page.getByRole('button', { name: '播放示范' }).click();
-  await page.getByRole('button', { name: '提交答案' }).click();
-  await page.getByRole('button', { name: '继续' }).click();
+  await continueGuidedStep(page);
   await page.getByRole('button', { name: '我看清了' }).click();
-  await page.getByRole('button', { name: '提交答案' }).click();
-  await page.getByRole('button', { name: '继续' }).click();
+  await continueGuidedStep(page);
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await page.getByRole('button', { name: 'C4' }).click();

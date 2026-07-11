@@ -229,6 +229,30 @@ export const stepRenderers: Record<LessonStepType, ComponentType<StepProps>> = {
   studioTransfer: StudioTransferStep,
 };
 
+type GuidedStepAction = {
+  cue: string;
+  pendingLabel: string;
+  readyMessage: string;
+};
+
+const guidedStepActions: Partial<Record<LessonStepType, GuidedStepAction>> = {
+  listen: {
+    cue: '聆听示范 · 无需选择',
+    pendingLabel: '播放后继续',
+    readyMessage: '示范已播放，可以进入下一步。',
+  },
+  explain: {
+    cue: '观察讲解 · 无需选择',
+    pendingLabel: '确认理解后继续',
+    readyMessage: '理解已确认，可以进入下一步。',
+  },
+  studioTransfer: {
+    cue: '作品写入 · 无需选择',
+    pendingLabel: '完成写入后继续',
+    readyMessage: '作品已写入，可以进入下一步。',
+  },
+};
+
 function storageKey(lessonId: string) {
   return `musicstudy:lesson:${lessonId}`;
 }
@@ -262,6 +286,7 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
   const step = session.stepIndex < lesson.steps.length ? getCurrentStep(session) : undefined;
   const progress = Math.min(100, ((session.stepIndex + 1) / lesson.steps.length) * 100);
   const Renderer = step ? stepRenderers[step.type] : null;
+  const guidedAction = step ? guidedStepActions[step.type] : undefined;
 
   useEffect(() => {
     setAnswer(undefined);
@@ -297,12 +322,31 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
 
   useEffect(() => () => engine.stop(), [engine]);
 
+  const finishLesson = async (completedSession: LessonSession) => {
+    const result = scoreLesson(completedSession);
+    await completeLesson({
+      lessonId: lesson.id,
+      score: result.score,
+      hints: completedSession.hintsUsed,
+      completedVariant: completedSession.completedVariant,
+      completedChallenge: completedSession.completedChallenge,
+      xp: lesson.xp,
+    });
+    localStorage.removeItem(storageKey(lesson.id));
+  };
+
   const submit = () => {
     if (!step || answer === undefined) return;
     const result = submitAnswer(session, answer);
     if (step.type === 'rhythmTap' && result.feedback.correct) engine.stop();
     setSession(result.session);
-    setFeedback(result.feedback);
+    const advanceDirectly = guidedAction && result.feedback.correct;
+    if (advanceDirectly) {
+      setFeedback(undefined);
+      if (result.session.stepIndex >= lesson.steps.length) void finishLesson(result.session);
+    } else {
+      setFeedback(result.feedback);
+    }
     void recordAttempt({
       lessonId: lesson.id,
       skillIds: step.skillIds,
@@ -316,16 +360,7 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
     setFeedback(undefined);
     setAnswer(undefined);
     if (session.stepIndex < lesson.steps.length) return;
-    const result = scoreLesson(session);
-    await completeLesson({
-      lessonId: lesson.id,
-      score: result.score,
-      hints: session.hintsUsed,
-      completedVariant: session.completedVariant,
-      completedChallenge: session.completedChallenge,
-      xp: lesson.xp,
-    });
-    localStorage.removeItem(storageKey(lesson.id));
+    await finishLesson(session);
   };
 
   return (
@@ -355,9 +390,21 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
           </div>
           {session.requiresVariant && <p className="mt-8 text-center font-bold text-[#ef765d]">需要一个变式</p>}
           {session.hintLevel > 0 && <p className="mt-4 text-center">提示 {session.hintLevel}：{getHint(session)}</p>}
-          <footer className="mt-10 flex justify-center gap-3">
-            <button className="rounded-full border-2 border-[#102a43] px-6 py-3 font-bold" onClick={() => setSession(requestHint(session))} type="button">提示</button>
-            <button className="rounded-full bg-[#102a43] px-8 py-3 font-bold text-[#fff4d6] disabled:opacity-40" disabled={answer === undefined} onClick={submit} type="button">提交答案</button>
+          <footer className="mt-10 flex flex-col items-center gap-4">
+            {guidedAction && (
+              <div className="text-center">
+                <strong className="block text-sm tracking-[.12em]">{guidedAction.cue}</strong>
+                <span className="mt-1 block text-sm text-[#102a43]/70">
+                  {answer === undefined ? '完成上方操作后即可继续。' : guidedAction.readyMessage}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-center gap-3">
+              <button className="rounded-full border-2 border-[#102a43] px-6 py-3 font-bold" onClick={() => setSession(requestHint(session))} type="button">提示</button>
+              <button className="rounded-full bg-[#102a43] px-8 py-3 font-bold text-[#fff4d6] disabled:opacity-40" disabled={answer === undefined} onClick={submit} type="button">
+                {guidedAction ? (answer === undefined ? guidedAction.pendingLabel : '继续课程') : '提交答案'}
+              </button>
+            </div>
           </footer>
         </section>
       ) : (

@@ -35,14 +35,20 @@ export async function expectNoHorizontalOverflow(page: Page) {
 export async function submitCorrect(page: Page) {
   await page.getByRole('button', { name: '提交答案' }).click();
   await expect(page.getByRole('dialog', { name: '回答正确' })).toBeVisible();
-  await page.getByRole('button', { name: '继续' }).click();
+  await page.getByRole('button', { name: '继续', exact: true }).click();
+}
+
+export async function continueGuidedStep(page: Page) {
+  const continueButton = page.getByRole('button', { name: '继续课程' });
+  await expect(continueButton).toBeEnabled();
+  await continueButton.click();
 }
 
 export async function completeHighLowLesson(page: Page) {
   await page.getByRole('button', { name: '播放示范' }).click();
-  await submitCorrect(page);
+  await continueGuidedStep(page);
   await page.getByRole('button', { name: '我看清了' }).click();
-  await submitCorrect(page);
+  await continueGuidedStep(page);
   await page.getByRole('button', { name: 'C3' }).click();
   await page.getByRole('button', { name: 'C5' }).click();
   await submitCorrect(page);
@@ -51,6 +57,5 @@ export async function completeHighLowLesson(page: Page) {
   for (const note of ['C4', 'C5', 'C3']) await page.getByRole('button', { name: note }).click();
   await submitCorrect(page);
   await page.getByRole('button', { name: '写入作品' }).click();
-  await expect(page.getByRole('button', { name: '提交答案' })).toBeEnabled();
-  await submitCorrect(page);
+  await continueGuidedStep(page);
 }
