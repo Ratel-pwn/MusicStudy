@@ -2,6 +2,21 @@ import { expect, test, type Page } from '@playwright/test';
 
 export { expect, test };
 
+const browserErrors = new WeakMap<Page, string[]>();
+
+test.beforeEach(async ({ page }) => {
+  const errors: string[] = [];
+  browserErrors.set(page, errors);
+  page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(`console.error: ${message.text()}`);
+  });
+});
+
+test.afterEach(async ({ page }) => {
+  expect(browserErrors.get(page) ?? []).toEqual([]);
+});
+
 async function installAudioSpy(page: Page) {
   await page.addInitScript(() => {
     globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__ = { unlockCalls: 0, playedMidi: [], playedCompositions: 0 };

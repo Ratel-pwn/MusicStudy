@@ -103,7 +103,7 @@ describe('lesson engine', () => {
     assisted = submitAnswer(assisted, 'C4').session;
     assisted = submitAnswer(assisted, ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C']).session;
 
-    expect(scoreLesson(clean)).toEqual({ score: 100, stars: 3 });
+    expect(scoreLesson(clean)).toEqual({ score: 100, stars: 2 });
     expect(scoreLesson(assisted).score).toBeLessThan(100);
     expect(scoreLesson(assisted).stars).toBeLessThan(3);
   });

@@ -3,6 +3,7 @@ import { buildTriad } from '../../domain/music/chords';
 import { parseNote } from '../../domain/music/pitch';
 import { buildScale } from '../../domain/music/scales';
 import type { NoteName, ScaleKind, TriadQuality } from '../../domain/music/types';
+import { calculateStars } from '../map/progression';
 
 export type FeedbackResult = {
   correct: boolean;
@@ -223,6 +224,10 @@ export function getHint(session: LessonSession): string {
 export function scoreLesson(session: LessonSession): { score: number; stars: 1 | 2 | 3 } {
   const errors = session.attempts - session.correctCount;
   const score = Math.max(0, 100 - errors * 15 - session.hintsUsed * 5);
-  const stars = score >= 85 ? 3 : score >= 60 ? 2 : 1;
+  const stars = calculateStars({
+    score,
+    hints: session.hintsUsed,
+    completedVariant: session.completedVariant,
+  });
   return { score, stars };
 }
