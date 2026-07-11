@@ -137,6 +137,14 @@ it('tabs from the exit action into the primary lesson interaction', async () => 
   expect(screen.getByRole('button', { name: 'C4' })).toHaveFocus();
 });
 
+it('places restart to the right of the progress bar', () => {
+  render(<LessonPage lesson={lesson} onExit={vi.fn()} />);
+
+  const progressbar = screen.getByRole('progressbar', { name: '课程进度' });
+  const restart = screen.getByRole('button', { name: '重新开始' });
+  expect(progressbar.compareDocumentPosition(restart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
 it('cancels restarting and keeps the current lesson step', async () => {
   const user = userEvent.setup();
   const saved = { ...createLessonSession(lesson), stepIndex: 1, correctCount: 1, attempts: 1 };

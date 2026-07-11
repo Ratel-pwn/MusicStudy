@@ -412,14 +412,12 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_85%_10%,rgba(231,197,95,.28),transparent_28%),linear-gradient(145deg,#f6ecd7,#fffaf0)] text-[#102a43]">
       <header className="mx-auto flex max-w-6xl items-center gap-3 px-5 py-5 sm:gap-5">
-        <div className="flex shrink-0 gap-2">
-          <button aria-label="退出课程" className="rounded-full border-2 border-[#102a43] px-3 py-2 text-sm font-bold sm:px-4 sm:text-base" onClick={onExit} type="button"><span className="hidden sm:inline">退出课程</span><span aria-hidden className="sm:hidden">退出</span></button>
-          <button aria-label="重新开始" className="rounded-full border-2 border-[#102a43] bg-[#e7c55f] px-3 py-2 text-sm font-bold transition-transform duration-200 hover:-translate-y-0.5 sm:px-4 sm:text-base" onClick={() => setRestartOpen(true)} type="button"><span className="hidden sm:inline">重新开始</span><span aria-hidden className="sm:hidden">重开</span></button>
-        </div>
+        <button aria-label="退出课程" className="shrink-0 rounded-full border-2 border-[#102a43] px-3 py-2 text-sm font-bold sm:px-4 sm:text-base" onClick={onExit} type="button"><span className="hidden sm:inline">退出课程</span><span aria-hidden className="sm:hidden">退出</span></button>
         <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#102a43]/15" role="progressbar" aria-label="课程进度" aria-valuenow={progress}>
           <div className="h-full rounded-full bg-[#4eaa94] transition-[width] duration-300" style={{ width: `${progress}%` }} />
         </div>
-        <strong>{Math.min(session.stepIndex + 1, lesson.steps.length)} / {lesson.steps.length}</strong>
+        <strong className="shrink-0 text-sm sm:text-base">{Math.min(session.stepIndex + 1, lesson.steps.length)} / {lesson.steps.length}</strong>
+        <button aria-label="重新开始" className="shrink-0 rounded-full border-2 border-[#102a43] bg-[#e7c55f] px-3 py-2 text-sm font-bold transition-transform duration-200 hover:-translate-y-0.5 sm:px-4 sm:text-base" onClick={() => setRestartOpen(true)} type="button"><span className="hidden sm:inline">重新开始</span><span aria-hidden className="sm:hidden">重开</span></button>
       </header>
 
       {step && Renderer ? (
