@@ -1,6 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import 'fake-indexeddb/auto';
 
+Object.defineProperty(window, 'scrollTo', {
+  configurable: true,
+  writable: true,
+  value: () => undefined,
+});
+
 if (typeof globalThis.localStorage?.getItem !== 'function') {
   const storage = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', {

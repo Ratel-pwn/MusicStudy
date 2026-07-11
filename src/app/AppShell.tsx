@@ -1,4 +1,5 @@
 import { HouseLine, MapTrifold, MusicNotes, PencilLine, Pulse } from '@phosphor-icons/react';
+import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 
 type NavigationMode = '首页入口' | '海图边缘' | '课程进度' | '创作运输' | '浮动分段';
@@ -23,6 +24,10 @@ export function AppShell() {
   const { pathname } = useLocation();
   const mode = navigationMode(pathname);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
+
   if (mode === '课程进度') {
     return (
       <div className="app-shell" data-shell-mode={mode}>
@@ -44,19 +49,12 @@ export function AppShell() {
     );
   }
 
-  const visibleDestinations = mode === '首页入口'
-    ? destinations.filter(({ to }) => to === '/map')
-    : mode === '海图边缘'
-      ? destinations.filter(({ to }) => ['/', '/map', '/practice', '/progress'].includes(to))
-      : destinations;
-  const navigationLabel = mode === '首页入口' ? '首页导航' : mode === '海图边缘' ? '群岛边缘导航' : '拾音岛主导航';
-
   return (
     <div className="app-shell" data-shell-mode={mode}>
-      <nav aria-label={navigationLabel} className="shell-navigation" data-navigation-mode={mode}>
+      <nav aria-label="拾音岛主导航" className="shell-navigation" data-navigation-mode={mode}>
         <NavLink aria-label="拾音岛首页" className="shell-mark" to="/">拾音岛</NavLink>
         <div className="shell-destinations">
-          {visibleDestinations.map(({ to, label, icon: Icon }) => (
+          {destinations.map(({ to, label, icon: Icon }) => (
             <NavLink
               className={({ isActive }) => isActive ? 'is-active' : undefined}
               end={to === '/'}
@@ -68,9 +66,6 @@ export function AppShell() {
             </NavLink>
           ))}
         </div>
-        <span aria-hidden="true" className="shell-mode-note">
-          {mode === '海图边缘' ? '航线已展开' : mode === '首页入口' ? '从第一枚声音出发' : '选择下一段声音'}
-        </span>
       </nav>
       <Outlet />
     </div>

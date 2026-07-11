@@ -1,13 +1,17 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { vi } from 'vitest';
 import { AppShell } from './AppShell';
+
+const primaryDestinations = ['首页', '群岛', '练习', '创作', '能力'];
 
 function renderShell(route: string) {
   render(
     <MemoryRouter initialEntries={[route]}>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="*" element={<main>页面内容</main>} />
+          <Route path="*" element={<main><Link to="/practice">切换到练习</Link></main>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -15,11 +19,37 @@ function renderShell(route: string) {
 }
 
 describe('AppShell', () => {
-  it('keeps the home navigation focused on entering the archipelago', () => {
-    renderShell('/');
-    expect(screen.getByRole('navigation', { name: '首页导航' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '群岛' })).toHaveAttribute('href', '/map');
-    expect(screen.queryByRole('link', { name: '练习' })).not.toBeInTheDocument();
+  it.each(['/', '/map', '/practice', '/progress'])('keeps five stable destinations on %s', (route) => {
+    renderShell(route);
+    const navigation = screen.getByRole('navigation', { name: '拾音岛主导航' });
+    for (const label of primaryDestinations) {
+      expect(navigation).toContainElement(screen.getByRole('link', { name: label }));
+    }
+  });
+
+  it('marks only the current primary destination active', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="*" element={<main>页面内容</main>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(container.querySelectorAll('.shell-destinations .is-active')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: '练习' })).toHaveClass('is-active');
+  });
+
+  it('scrolls the next route to the top', async () => {
+    const user = userEvent.setup();
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+    renderShell('/map');
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('link', { name: '切换到练习' }));
+    expect(scrollTo).toHaveBeenCalledTimes(2);
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: 0, left: 0, behavior: 'auto' });
+    scrollTo.mockRestore();
   });
 
   it('reduces lesson navigation to exit and course context', () => {
@@ -37,20 +67,4 @@ describe('AppShell', () => {
     expect(screen.queryByRole('link', { name: '创作' })).not.toBeInTheDocument();
   });
 
-  it('uses a chart-edge set of destinations on the map', () => {
-    renderShell('/map');
-    expect(screen.getByRole('navigation', { name: '群岛边缘导航' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '练习' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '能力' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '创作' })).not.toBeInTheDocument();
-  });
-
-  it('keeps every primary destination in the standard floating navigation', () => {
-    renderShell('/practice');
-    expect(screen.getByRole('link', { name: '群岛' })).toHaveAttribute('href', '/map');
-    expect(screen.getByRole('link', { name: '练习' })).toHaveAttribute('href', '/practice');
-    expect(screen.getByRole('link', { name: '创作' })).toHaveAttribute('href', '/studio/studio-draft');
-    expect(screen.getByRole('link', { name: '能力' })).toHaveAttribute('href', '/progress');
-    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
-  });
 });
