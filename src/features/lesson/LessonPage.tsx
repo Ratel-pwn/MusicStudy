@@ -28,6 +28,7 @@ export type StepProps = {
   setAnswer(answer: unknown): void;
   playMidi(midi: number): void;
   playSequence?(midis: number[], intervalBeats?: number): void;
+  startMetronome?(bpm: number): void;
   now?(): number;
 };
 
@@ -92,27 +93,40 @@ function RhythmStep({ step, answer, setAnswer }: StepProps) {
   return <RhythmGrid length={units.length} onChange={setAnswer} value={(answer as Array<RhythmValue | null> | undefined) ?? []} />;
 }
 
-function RhythmTapStep({ step, answer, setAnswer, now = () => performance.now() }: StepProps) {
+function RhythmTapStep({ step, answer, setAnswer, startMetronome, now = () => performance.now() }: StepProps) {
   const authoredAccents = Array.isArray(step.config.accents) ? step.config.accents as number[] : undefined;
-  const taps = Array.isArray(answer) ? answer : (answer as { timestamps?: number[] } | undefined)?.timestamps ?? [];
-  const accents = (answer as { accents?: number[] } | undefined)?.accents ?? [];
+  const rhythmAnswer = answer as { timestamps?: number[]; targetTimestamps?: number[]; accents?: number[] } | undefined;
+  const taps = rhythmAnswer?.timestamps ?? [];
+  const targetTimestamps = rhythmAnswer?.targetTimestamps ?? [];
+  const accents = rhythmAnswer?.accents ?? [];
   const [accentNext, setAccentNext] = useState(false);
   const target = getExpectedAnswer(step) as number[];
+  const bpm = typeof step.config.bpm === 'number' ? step.config.bpm : 90;
+  const interval = 60_000 / bpm / (typeof step.config.subdivision === 'number' ? step.config.subdivision : 1) * (authoredAccents ? 4 : 1);
+  const start = () => {
+    startMetronome?.(bpm);
+    const startedAt = now();
+    setAnswer({
+      timestamps: [],
+      targetTimestamps: Array.from({ length: target.length }, (_, index) => startedAt + (index + 1) * interval),
+      accents: [],
+    });
+  };
   const tap = () => {
     const nextTaps = [...taps, now()].slice(0, target.length);
-    if (!authoredAccents) setAnswer(nextTaps);
-    else {
-      const bar = nextTaps.length;
-      setAnswer({ timestamps: nextTaps, accents: accentNext ? [...accents, bar] : accents });
-      setAccentNext(false);
-    }
+    const bar = nextTaps.length;
+    setAnswer({ timestamps: nextTaps, targetTimestamps, accents: authoredAccents && accentNext ? [...accents, bar] : accents });
+    setAccentNext(false);
   };
   return (
     <div className="text-center">
+      <p className="mb-4 font-bold">{bpm} BPM</p>
+      <button className="mb-4 rounded-full bg-[#102a43] px-5 py-3 font-bold text-[#fff4d6]" onClick={start} type="button">开始节拍</button>
       {authoredAccents && <button aria-pressed={accentNext} className="mb-4 rounded-full border-2 border-[#102a43] px-5 py-3 font-bold" onClick={() => setAccentNext((value) => !value)} type="button">下一小节重拍</button>}
       <button
         aria-label={`打拍，${taps.length} / ${target.length}`}
         className="mx-auto grid size-48 place-items-center rounded-full border-4 border-[#102a43] bg-[#e7c55f] font-serif text-3xl font-bold text-[#102a43] shadow-[0_12px_0_#102a43] active:translate-y-2 active:shadow-[0_4px_0_#102a43]"
+        disabled={targetTimestamps.length === 0 || taps.length >= target.length}
         onClick={tap}
         type="button"
       >拍</button>
@@ -132,17 +146,23 @@ function ChordStep({ step, answer, setAnswer }: StepProps) {
 
 function ChoiceStep({ step, answer, setAnswer, playSequence }: StepProps) {
   const choices = Array.isArray(step.config.choices) ? step.config.choices : [];
+  const audioOptions = step.config.audioOptions as Record<string, string[]> | undefined;
   return (
     <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3" role="group" aria-label="可选答案">
-      <button className="rounded-full border-2 border-[#102a43] px-6 py-3 font-bold" onClick={() => playSequence?.([60, 67, 60, 65], .5)} type="button">试听比较</button>
       {choices.map((choice) => (
-        <button
-          aria-pressed={answer === choice}
-          className="rounded-full border-2 border-[#102a43] bg-[#fffaf0] px-6 py-3 font-bold text-[#102a43] aria-pressed:bg-[#e7c55f]"
-          key={String(choice)}
-          onClick={() => setAnswer(choice)}
-          type="button"
-        >{String(choice)}</button>
+        <span className="flex gap-2" key={String(choice)}>
+          <button
+            className="rounded-full border-2 border-[#102a43] px-5 py-3 font-bold"
+            onClick={() => playSequence?.((audioOptions?.[String(choice)] ?? []).map((note) => parseNote(note).midi), .5)}
+            type="button"
+          >试听 {String(choice)}</button>
+          <button
+            aria-pressed={answer === choice}
+            className="rounded-full border-2 border-[#102a43] bg-[#fffaf0] px-6 py-3 font-bold text-[#102a43] aria-pressed:bg-[#e7c55f]"
+            onClick={() => setAnswer(choice)}
+            type="button"
+          >{String(choice)}</button>
+        </span>
       ))}
     </div>
   );
@@ -253,9 +273,22 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
     engine.playMidi(midi);
   };
 
+  const playSequence = async (midis: number[], interval?: number) => {
+    if (status !== 'ready') await unlock();
+    engine.playSequence(midis, interval);
+  };
+
+  const startMetronome = async (bpm: number) => {
+    if (status !== 'ready') await unlock();
+    engine.startMetronome(bpm);
+  };
+
+  useEffect(() => () => engine.stop(), [engine]);
+
   const submit = () => {
     if (!step || answer === undefined) return;
     const result = submitAnswer(session, answer);
+    if (step.type === 'rhythmTap' && result.feedback.correct) engine.stop();
     setSession(result.session);
     setFeedback(result.feedback);
     void recordAttempt({
@@ -301,7 +334,8 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
               key={step.id}
               answer={answer}
               playMidi={(midi) => void playMidi(midi)}
-              playSequence={(midis, interval) => engine.playSequence(midis, interval)}
+              playSequence={(midis, interval) => void playSequence(midis, interval)}
+              startMetronome={(bpm) => void startMetronome(bpm)}
               setAnswer={setAnswer}
               step={step}
             />

@@ -248,6 +248,23 @@ describe('StudioPage', () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
+  it('ignores a stale composition read after the route id changes', async () => {
+    let resolveA!: (value: Composition) => void;
+    let resolveB!: (value: Composition) => void;
+    repository.get.mockImplementation((id: string) => new Promise<Composition>((resolve) => {
+      if (id === 'song-a') resolveA = resolve;
+      else resolveB = resolve;
+    }));
+    const view = render(<StudioPage compositionId="song-a" />);
+    view.rerender(<StudioPage compositionId="song-b" />);
+    resolveB(composition({ id: 'song-b', title: '作品 B' }));
+    expect(await screen.findByDisplayValue('作品 B')).toBeInTheDocument();
+    resolveA(composition({ id: 'song-a', title: '作品 A' }));
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByDisplayValue('作品 B')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('作品 A')).not.toBeInTheDocument();
+  });
+
   it('keeps editing available and does not start playback when audio recovery fails', async () => {
     const user = userEvent.setup();
     audio.engine.status = 'failed';

@@ -12,6 +12,15 @@ const PLAYABLE_IDS = [
 ] as const;
 
 describe('playable curriculum', () => {
+  it('authors distinct A/B audio material for every playable choice', () => {
+    lessons.flatMap((lesson) => lesson.steps).filter((step) => step.type === 'choice').forEach((step) => {
+      const choices = step.config.choices as string[];
+      const audioOptions = step.config.audioOptions as Record<string, string[]> | undefined;
+      expect(audioOptions, step.id).toBeDefined();
+      expect(Object.keys(audioOptions ?? {}), step.id).toEqual(choices);
+      expect(new Set(Object.values(audioOptions ?? {}).map((notes) => JSON.stringify(notes))).size, step.id).toBe(choices.length);
+    });
+  });
   it('contains exactly the eight required playable lessons', () => {
     expect(lessons.map((lesson) => lesson.id)).toEqual(PLAYABLE_IDS);
     expect(PLAYABLE_IDS.map((id) => getLesson(id)?.id)).toEqual(PLAYABLE_IDS);

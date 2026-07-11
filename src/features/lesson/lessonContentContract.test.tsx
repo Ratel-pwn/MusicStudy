@@ -21,12 +21,13 @@ async function performAuthoredAction(step: LessonStep) {
     const expected = getExpectedAnswer(step);
     for (const note of (Array.isArray(expected) ? expected : [expected]) as string[]) await user.click(screen.getByRole('button', { name: note }));
   } else if (step.type === 'choice') {
-    await user.click(screen.getByRole('button', { name: '试听比较' }));
-    await user.click(screen.getByRole('button', { name: String(getExpectedAnswer(step)) }));
+    await user.click(screen.getByRole('button', { name: `试听 ${String(getExpectedAnswer(step))}` }));
+    await user.click(screen.getByRole('button', { name: String(getExpectedAnswer(step)), pressed: false }));
   }
   else if (step.type === 'rhythmTap') {
     const count = (getExpectedAnswer(step) as number[]).length;
     const accents = Array.isArray(step.config.accents) ? step.config.accents as number[] : [];
+    await user.click(screen.getByRole('button', { name: '开始节拍' }));
     for (let index = 0; index < count; index += 1) {
       if (accents.includes(index + 1)) await user.click(screen.getByRole('button', { name: '下一小节重拍' }));
       await user.click(screen.getByRole('button', { name: /打拍/ }));
@@ -85,6 +86,7 @@ it('submits eight taps for the real taps-number lesson', async () => {
   const step = rhythmEighthSubdivisionLesson.steps.find((item) => item.id === 'eighth-follow')!;
   render(<RendererHarness step={step} />);
 
+  await user.click(screen.getByRole('button', { name: '开始节拍' }));
   const tap = screen.getByRole('button', { name: '打拍，0 / 8' });
   for (let count = 0; count < 8; count += 1) await user.click(tap);
   expect(screen.getByRole('button', { name: '打拍，8 / 8' })).toBeInTheDocument();
@@ -111,6 +113,34 @@ it('renders six cells for the authored eighth-note rhythm', () => {
   render(<RendererHarness step={step} />);
 
   expect(screen.getAllByRole('button', { name: /第 \d 拍，空/ })).toHaveLength(6);
+});
+
+it('plays distinct authored material for each choice option', async () => {
+  const user = userEvent.setup();
+  const playSequence = vi.fn();
+  const step: LessonStep = {
+    id: 'audio-choice', type: 'choice', prompt: 'compare', skillIds: ['pitch'],
+    config: { choices: ['A', 'B'], answer: 'A', audioOptions: { A: ['C4', 'G4'], B: ['C4', 'F3'] } }, feedback: {},
+  };
+  const Renderer = stepRenderers.choice;
+  render(<Renderer answer={undefined} playMidi={vi.fn()} playSequence={playSequence} setAnswer={vi.fn()} step={step} />);
+  await user.click(screen.getByRole('button', { name: '试听 A' }));
+  await user.click(screen.getByRole('button', { name: '试听 B' }));
+  expect(playSequence.mock.calls[0][0]).not.toEqual(playSequence.mock.calls[1][0]);
+});
+
+it('starts an audible BPM target with absolute beat timestamps', async () => {
+  const user = userEvent.setup();
+  const step: LessonStep = { id: 'timed', type: 'rhythmTap', prompt: 'tap', skillIds: ['rhythm'], config: { bpm: 60, taps: 3 }, feedback: {} };
+  const Renderer = stepRenderers.rhythmTap;
+  const answers: unknown[] = [];
+  const startMetronome = vi.fn();
+  const values = [0, 1000, 2000, 3000];
+  render(<Renderer answer={answers.at(-1)} now={() => values.shift() ?? 3000} playMidi={vi.fn()} playSequence={vi.fn()} setAnswer={(answer) => answers.push(answer)} startMetronome={startMetronome} step={step} />);
+  expect(screen.getByText('60 BPM')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '开始节拍' }));
+  expect(startMetronome).toHaveBeenCalledWith(60);
+  expect(answers.at(-1)).toMatchObject({ targetTimestamps: [1000, 2000, 3000] });
 });
 
 it('requires the octave tonic as the eighth C-major scale item', () => {

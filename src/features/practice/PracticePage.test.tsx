@@ -1,9 +1,15 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 
 import { db } from '../../data/db';
 import { PracticePage } from './PracticePage';
 import type { PracticeItem } from './scheduler';
+
+const practiceAudio = vi.hoisted(() => ({ playSequence: vi.fn(), startMetronome: vi.fn(), stop: vi.fn() }));
+vi.mock('../../audio/useAudio', () => ({
+  useAudio: () => ({ engine: practiceAudio, status: 'ready', unlock: vi.fn() }),
+}));
 
 const items: PracticeItem[] = [
   {
@@ -40,7 +46,7 @@ describe('PracticePage', () => {
     expect(screen.queryByRole('heading', { name: /节奏/ })).not.toBeInTheDocument();
 
     expect(screen.queryByRole('button', { name: '独立完成' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /更高/ }));
+    await user.click(screen.getByRole('button', { name: /^更高$/ }));
     await user.click(screen.getByRole('button', { name: '提交答案' }));
     await user.click(screen.getByRole('button', { name: '继续' }));
 
@@ -48,11 +54,18 @@ describe('PracticePage', () => {
     expect(screen.getByText(/7月14日/)).toBeInTheDocument();
   });
 
+  it('plays authored comparison audio inside a practice item', async () => {
+    const user = userEvent.setup();
+    render(<PracticePage items={[items[0]]} />);
+    await user.click(screen.getByRole('button', { name: /^试听 更高$/ }));
+    expect(practiceAudio.playSequence).toHaveBeenCalled();
+  });
+
   it('persists mastery and the next review date when a task is completed', async () => {
     const user = userEvent.setup();
     render(<PracticePage items={[items[0]]} now={() => new Date('2026-07-11T08:00:00.000Z')} />);
 
-    await user.click(screen.getByRole('button', { name: /更高/ }));
+    await user.click(screen.getByRole('button', { name: /^更高$/ }));
     await user.click(screen.getByRole('button', { name: '提交答案' }));
     await user.click(screen.getByRole('button', { name: '继续' }));
 
@@ -70,7 +83,7 @@ describe('PracticePage', () => {
     const user = userEvent.setup();
     render(<PracticePage items={[items[0]]} now={() => new Date('2026-07-10T16:30:00.000Z')} />);
 
-    await user.click(screen.getByRole('button', { name: /更高/ }));
+    await user.click(screen.getByRole('button', { name: /^更高$/ }));
     await user.click(screen.getByRole('button', { name: '提交答案' }));
     await user.click(screen.getByRole('button', { name: '继续' }));
 

@@ -46,7 +46,7 @@ export async function completeHighLowLesson(page: Page) {
   await page.getByRole('button', { name: 'C3' }).click();
   await page.getByRole('button', { name: 'C5' }).click();
   await submitCorrect(page);
-  await page.getByRole('button', { name: '更高' }).click();
+  await page.getByRole('button', { name: '更高', exact: true }).click();
   await submitCorrect(page);
   for (const note of ['C4', 'C5', 'C3']) await page.getByRole('button', { name: note }).click();
   await submitCorrect(page);

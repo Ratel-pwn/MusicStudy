@@ -148,16 +148,14 @@ type StudioTransferAnswer = { applied: true; compositionId: string; trackActions
 
 function validateRhythmTaps(step: LessonStep, answer: unknown): boolean {
   const hasAccents = Array.isArray(step.config.accents);
-  const timestamps = hasAccents && answer && typeof answer === 'object'
-    ? (answer as { timestamps?: unknown }).timestamps
-    : answer;
+  if (!answer || typeof answer !== 'object') return false;
+  const timestamps = (answer as { timestamps?: unknown }).timestamps;
+  const targetTimestamps = (answer as { targetTimestamps?: unknown }).targetTimestamps;
   if (!Array.isArray(timestamps) || !timestamps.every((value) => typeof value === 'number')) return false;
+  if (!Array.isArray(targetTimestamps) || !targetTimestamps.every((value) => typeof value === 'number')) return false;
   const count = tapCount(step);
-  if (timestamps.length !== count || count < 1) return false;
-  const bpm = typeof step.config.bpm === 'number' ? step.config.bpm : 90;
-  const subdivision = typeof step.config.subdivision === 'number' ? step.config.subdivision : 1;
-  const targetInterval = 60_000 / bpm / subdivision * (hasAccents ? 4 : 1);
-  const timingCorrect = timestamps.slice(1).every((time, index) => Math.abs((time as number) - (timestamps[index] as number) - targetInterval) <= 120);
+  if (timestamps.length !== count || targetTimestamps.length !== count || count < 1) return false;
+  const timingCorrect = timestamps.every((time, index) => Math.abs((time as number) - (targetTimestamps[index] as number)) <= 120);
   if (!timingCorrect || !hasAccents) return timingCorrect;
   return answersMatch((answer as { accents?: unknown }).accents, step.config.accents);
 }

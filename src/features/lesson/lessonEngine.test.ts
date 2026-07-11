@@ -42,8 +42,9 @@ describe('lesson engine', () => {
       id: 'tap', type: 'rhythmTap', prompt: 'tap', skillIds: ['rhythm'],
       config: { bpm: 60, taps: 4 }, feedback: { timing: 'keep time' },
     }] };
-    expect(submitAnswer(createLessonSession(tapLesson), [0, 1000, 2000, 3000]).feedback.correct).toBe(true);
-    expect(submitAnswer(createLessonSession(tapLesson), [0, 700, 2000, 3000]).feedback.correct).toBe(false);
+    const targetTimestamps = [1000, 2000, 3000, 4000];
+    expect(submitAnswer(createLessonSession(tapLesson), { timestamps: targetTimestamps, targetTimestamps }).feedback.correct).toBe(true);
+    expect(submitAnswer(createLessonSession(tapLesson), { timestamps: [800, 2000, 3000, 4000], targetTimestamps }).feedback.correct).toBe(false);
   });
 
   it('grades eight-bar phrase taps at bar intervals and requires authored accents', () => {
@@ -51,9 +52,9 @@ describe('lesson engine', () => {
       id: 'phrase', type: 'rhythmTap', prompt: 'phrase', skillIds: ['creation'],
       config: { bpm: 60, bars: 8, accents: [1, 5] }, feedback: { accent: 'mark phrases' },
     }] };
-    const timestamps = Array.from({ length: 8 }, (_, index) => index * 4000);
-    expect(submitAnswer(createLessonSession(phraseLesson), { timestamps, accents: [1, 5] }).feedback.correct).toBe(true);
-    expect(submitAnswer(createLessonSession(phraseLesson), { timestamps, accents: [1] }).feedback.correct).toBe(false);
+    const targetTimestamps = Array.from({ length: 8 }, (_, index) => (index + 1) * 4000);
+    expect(submitAnswer(createLessonSession(phraseLesson), { timestamps: targetTimestamps, targetTimestamps, accents: [1, 5] }).feedback.correct).toBe(true);
+    expect(submitAnswer(createLessonSession(phraseLesson), { timestamps: targetTimestamps, targetTimestamps, accents: [1] }).feedback.correct).toBe(false);
   });
 
   it('does not accept generic acknowledgements for listening or studio transfer', () => {

@@ -9,15 +9,19 @@ import { useAudio } from './useAudio';
 
 const tone = vi.hoisted(() => {
   const synths: Array<{
+    kind: string;
     triggerAttackRelease: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
     toDestination: ReturnType<typeof vi.fn>;
+    connect: ReturnType<typeof vi.fn>;
   }> = [];
+  const channels: Array<{ toDestination: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }> = [];
   const transport = {
     bpm: { value: 120 },
     loop: false,
     loopStart: 0,
     loopEnd: 0,
+    position: 0,
     schedule: vi.fn((callback: (time: number) => void) => {
       callback(42);
       return 1;
@@ -28,15 +32,24 @@ const tone = vi.hoisted(() => {
     cancel: vi.fn(),
   };
 
-  function createSynth() {
+  function createSynth(kind = 'synth') {
     const synth = {
+      kind,
       triggerAttackRelease: vi.fn(),
       dispose: vi.fn(),
       toDestination: vi.fn(),
+      connect: vi.fn(),
     };
     synth.toDestination.mockReturnValue(synth);
     synths.push(synth);
     return synth;
+  }
+
+  function createChannel() {
+    const channel = { toDestination: vi.fn(), dispose: vi.fn() };
+    channel.toDestination.mockReturnValue(channel);
+    channels.push(channel);
+    return channel;
   }
 
   return {
@@ -45,10 +58,15 @@ const tone = vi.hoisted(() => {
     Frequency: vi.fn((midi: number) => ({
       toNote: () => new Map([[60, 'C4'], [64, 'E4'], [67, 'G4']]).get(midi) ?? `midi-${midi}`,
     })),
-    Synth: vi.fn(createSynth),
+    Synth: vi.fn(function Synth() { return createSynth('synth'); }),
+    NoiseSynth: vi.fn(function NoiseSynth() { return createSynth('noise'); }),
+    MonoSynth: vi.fn(function MonoSynth() { return createSynth('bass'); }),
+    PolySynth: vi.fn(function PolySynth() { return createSynth('poly'); }),
+    Channel: vi.fn(function Channel() { return createChannel(); }),
     createSynth,
     Transport: transport,
     synths,
+    channels,
   };
 });
 
@@ -95,9 +113,10 @@ describe('AudioEngine', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tone.synths.length = 0;
+    tone.channels.length = 0;
     tone.Transport.bpm.value = 120;
     tone.start.mockResolvedValue(undefined);
-    tone.Synth.mockImplementation(tone.createSynth);
+    tone.Synth.mockImplementation(function Synth() { return tone.createSynth('synth'); });
   });
 
   afterEach(() => {
@@ -119,7 +138,7 @@ describe('AudioEngine', () => {
       unlockCalls: 1,
       playedMidi: [60],
       playedCompositions: 1,
-      stopCalls: 0,
+      stopCalls: 1,
     });
     expect(tone.start).not.toHaveBeenCalled();
     expect(tone.Synth).not.toHaveBeenCalled();
@@ -230,6 +249,57 @@ describe('AudioEngine', () => {
     expect(onStop).toHaveBeenCalledOnce();
   });
 
+  it('constructs distinct routed timbres and uses percussion semantics for drums', async () => {
+    const engine = createEngine();
+    await engine.unlock();
+    const richComposition: Composition = {
+      ...composition,
+      tracks: {
+        drums: [{ id: 'd', midi: 36, startBeat: 0, durationBeats: .25, velocity: .8 }],
+        bass: [{ id: 'b', midi: 48, startBeat: 1, durationBeats: 1, velocity: .7 }],
+        chords: [{ id: 'c', midi: 60, startBeat: 2, durationBeats: 2, velocity: .7 }],
+        melody: [{ id: 'm', midi: 67, startBeat: 3, durationBeats: .5, velocity: .9 }],
+      },
+    };
+    engine.playComposition(richComposition);
+    expect(tone.NoiseSynth).toHaveBeenCalledOnce();
+    expect(tone.MonoSynth).toHaveBeenCalledOnce();
+    expect(tone.PolySynth).toHaveBeenCalledOnce();
+    expect(tone.Channel).toHaveBeenCalledTimes(4);
+    expect(tone.synths.filter((node) => ['noise', 'bass', 'poly', 'synth'].includes(node.kind)).slice(-4).every((node) => node.connect.mock.calls.length === 1)).toBe(true);
+    expect(tone.synths.find((node) => node.kind === 'noise')?.triggerAttackRelease).toHaveBeenCalledWith(expect.any(Number), 42, .8);
+    expect(tone.synths.find((node) => node.kind === 'bass')?.triggerAttackRelease).toHaveBeenCalledWith('midi-48', expect.any(Number), 42, .7);
+  });
+
+  it('does not consume the new composition callback while resetting old playback', async () => {
+    const engine = createEngine();
+    await engine.unlock();
+    const oldStop = vi.fn();
+    const nextStop = vi.fn();
+    engine.playComposition(composition, { onStop: oldStop });
+    engine.playComposition(composition, { onStop: nextStop });
+    expect(oldStop).toHaveBeenCalledOnce();
+    expect(nextStop).not.toHaveBeenCalled();
+    engine.stop();
+    expect(nextStop).toHaveBeenCalledOnce();
+  });
+
+  it('resets transport loop mode and position for sequences and metronome', async () => {
+    const engine = createEngine();
+    await engine.unlock();
+    engine.playComposition(composition, { startBeat: 8 });
+    engine.playSequence([60, 64]);
+    expect(tone.Transport.loop).toBe(false);
+    expect(tone.Transport.loopStart).toBe(0);
+    expect(tone.Transport.loopEnd).toBe(0);
+    expect(tone.Transport.position).toBe(0);
+    expect(tone.Transport.start).toHaveBeenLastCalledWith(undefined, 0);
+    engine.startMetronome(96);
+    expect(tone.Transport.loop).toBe(false);
+    expect(tone.Transport.position).toBe(0);
+    expect(tone.Transport.start).toHaveBeenLastCalledWith(undefined, 0);
+  });
+
   it('stops, cancels, and disposes all owned audio resources', async () => {
     const engine = createEngine();
     await engine.unlock();
@@ -241,6 +311,7 @@ describe('AudioEngine', () => {
     expect(tone.Transport.cancel).toHaveBeenCalledTimes(2);
     expect(tone.synths[0].dispose).toHaveBeenCalledOnce();
     expect(tone.synths[1].dispose).toHaveBeenCalledOnce();
+    expect(tone.channels.every((channel) => channel.dispose.mock.calls.length === 1)).toBe(true);
   });
 
   it('registers visibility handling after unlock and removes it on dispose', async () => {
@@ -282,8 +353,9 @@ describe('AudioProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tone.synths.length = 0;
+    tone.channels.length = 0;
     tone.start.mockResolvedValue(undefined);
-    tone.Synth.mockImplementation(tone.createSynth);
+    tone.Synth.mockImplementation(function Synth() { return tone.createSynth('synth'); });
   });
 
   it('exposes successful unlock state to consumers', async () => {
@@ -314,7 +386,7 @@ describe('AudioProvider', () => {
     await user.click(screen.getByRole('button', { name: 'unlock' }));
 
     expect(screen.getByText('ready')).toBeInTheDocument();
-    expect(tone.Synth).toHaveBeenCalledTimes(6);
+    expect(tone.Synth).toHaveBeenCalledTimes(3);
     expect(addEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
   });
 

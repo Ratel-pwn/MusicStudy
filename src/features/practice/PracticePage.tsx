@@ -5,6 +5,7 @@ import { attemptRepository, reviewRepository } from '../../data/repositories';
 import type { ReviewRecord } from '../../data/db';
 import type { LessonStep, SkillId } from '../../content/schema';
 import { lessons } from '../../content/worlds';
+import { useAudio } from '../../audio/useAudio';
 import { FeedbackSheet } from '../lesson/components/FeedbackSheet';
 import { stepRenderers } from '../lesson/LessonPage';
 import { createLessonSession, getHint, requestHint, submitAnswer, type FeedbackResult } from '../lesson/lessonEngine';
@@ -63,6 +64,7 @@ function practiceStep(item: PracticeItem): LessonStep {
 }
 
 export function PracticePage({ items, now = () => new Date() }: PracticePageProps) {
+  const { engine, status, unlock } = useAudio();
   const [activeIndex, setActiveIndex] = useState(0);
   const [lastReview, setLastReview] = useState<ReviewRecord>();
   const [saving, setSaving] = useState(false);
@@ -78,6 +80,13 @@ export function PracticePage({ items, now = () => new Date() }: PracticePageProp
     setFeedback(undefined);
     setSession(step ? createLessonSession({ id: `practice:${step.id}`, worldId: 'practice', title: 'practice', order: 0, xp: 0, prerequisiteIds: [], steps: [step] }) : undefined);
   }, [step]);
+
+  useEffect(() => () => engine.stop(), [engine]);
+
+  const playSequence = async (midis: number[], interval?: number) => {
+    if (status !== 'ready') await unlock();
+    engine.playSequence(midis, interval);
+  };
 
   const complete = async (correct: boolean, hints: number) => {
     if (!active || saving) return;
@@ -152,7 +161,7 @@ export function PracticePage({ items, now = () => new Date() }: PracticePageProp
                 {step && Renderer && session && (
                   <>
                     <p>{step.prompt}</p>
-                    <Renderer answer={answer} playMidi={() => undefined} setAnswer={setAnswer} step={step} />
+                    <Renderer answer={answer} playMidi={() => undefined} playSequence={(midis, interval) => void playSequence(midis, interval)} setAnswer={setAnswer} step={step} />
                     {session.hintLevel > 0 && <p>提示 {session.hintLevel}：{getHint(session)}</p>}
                   </>
                 )}

@@ -66,6 +66,25 @@ it('serializes retries so an older in-flight write cannot finish after a newer e
   expect(save.mock.calls).toEqual([[{ title: 'first' }], [{ title: 'latest' }]]);
 });
 
+it('force-retries the same failed snapshot and clears the error after success', async () => {
+  const value = { title: 'unchanged' };
+  const save = vi.fn()
+    .mockRejectedValueOnce(new Error('first write failed'))
+    .mockResolvedValueOnce(undefined);
+  const { result } = renderHook(() => useAutosaveRecovery({
+    value,
+    save,
+    fileName: 'draft.json',
+  }));
+
+  await act(async () => { await result.current.retry(); });
+  expect(result.current.error?.message).toBe('first write failed');
+  await act(async () => { await result.current.retry(); });
+
+  expect(save).toHaveBeenCalledTimes(2);
+  expect(result.current.error).toBeNull();
+});
+
 it('tracks changes to the reduced-motion media query', () => {
   let listener: ((event: MediaQueryListEvent) => void) | undefined;
   const media = {

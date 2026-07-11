@@ -39,6 +39,7 @@ const isTrackKind = (value: string | null): value is TrackKind => TRACKS.some((t
 
 export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
   const rootRef = useRef<HTMLElement>(null);
+  const loadRequestRef = useRef(0);
   const { engine, unlock } = useAudio();
   const reducedMotion = useReducedMotion();
   const [store] = useState(() => {
@@ -77,25 +78,27 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
 
   const requestedId = compositionId ?? localStorage.getItem(STUDIO_COMPOSITION_KEY);
   const loadComposition = useCallback(async (id: string) => {
+    const request = ++loadRequestRef.current;
     setHydrated(false);
     setReadError(null);
     try {
       const restored = await compositionRepository.get(id);
+      if (request !== loadRequestRef.current) return;
       store.getState().replaceComposition(restored ?? { ...DEFAULT_COMPOSITION, id });
       setHydrated(true);
     } catch (reason) {
+      if (request !== loadRequestRef.current) return;
       setReadError(reason instanceof Error ? reason : new Error(String(reason)));
     }
   }, [store]);
 
   useEffect(() => {
-    let active = true;
     if (!requestedId) {
+      loadRequestRef.current += 1;
       setHydrated(true);
-      return () => { active = false; };
+      return;
     }
     void loadComposition(requestedId);
-    return () => { active = false; };
   }, [loadComposition, requestedId]);
 
   useEffect(() => setTitleDraft(composition.title), [composition.title]);
@@ -169,6 +172,7 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
           <span>无法读取这份作品，自动保存已暂停，不会覆盖原记录。</span>
           <button type="button" onClick={() => requestedId && void loadComposition(requestedId)}>重试读取</button>
           <button type="button" onClick={() => {
+            loadRequestRef.current += 1;
             store.getState().replaceComposition({ ...DEFAULT_COMPOSITION, id: `${requestedId ?? 'studio'}-recovered` });
             setReadError(null);
             setHydrated(true);

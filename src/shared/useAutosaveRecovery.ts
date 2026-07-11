@@ -51,6 +51,7 @@ export function useAutosaveRecovery<T>({
   const enabledRef = useRef(enabled);
   const versionRef = useRef(0);
   const queuedVersionRef = useRef(-1);
+  const persistedVersionRef = useRef(-1);
   const queueRef = useRef<Promise<void>>(Promise.resolve());
   const pendingSavesRef = useRef(0);
   const mountedRef = useRef(true);
@@ -59,19 +60,23 @@ export function useAutosaveRecovery<T>({
   saveRef.current = save;
   enabledRef.current = enabled;
 
-  const persist = useCallback((): Promise<boolean> => {
+  const persist = useCallback((force = false): Promise<boolean> => {
     if (!enabledRef.current) return Promise.resolve(false);
     const version = versionRef.current;
-    if (version <= queuedVersionRef.current) return queueRef.current.then(() => true);
+    if (!force && (version <= persistedVersionRef.current || version <= queuedVersionRef.current)) {
+      return queueRef.current.then(() => true);
+    }
     queuedVersionRef.current = version;
     const snapshot = valueRef.current;
     const execute = async () => {
       try {
         await saveRef.current(snapshot);
+        persistedVersionRef.current = Math.max(persistedVersionRef.current, version);
         if (mountedRef.current) setError(null);
       } catch (reason) {
         const nextError = reason instanceof Error ? reason : new Error(String(reason));
         if (mountedRef.current) setError(nextError);
+        if (queuedVersionRef.current === version) queuedVersionRef.current = persistedVersionRef.current;
         throw nextError;
       }
     };
@@ -105,7 +110,7 @@ export function useAutosaveRecovery<T>({
 
   return {
     error,
-    retry: persist,
+    retry: () => persist(true),
     downloadSnapshot: downloadLatestRecoverySnapshot,
   };
 }
