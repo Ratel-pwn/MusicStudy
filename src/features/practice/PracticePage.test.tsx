@@ -72,7 +72,7 @@ describe('PracticePage', () => {
     }
     await user.click(screen.getByRole('button', { name: '提交答案' }));
     await user.click(screen.getByRole('button', { name: '继续' }));
-    expect(screen.getByRole('heading', { name: '今天的练习航道已走完' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '今天的练习航道已走完' })).toBeInTheDocument();
   });
 
   it('persists mastery and the next review date when a task is completed', async () => {
