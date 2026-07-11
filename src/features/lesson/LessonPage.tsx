@@ -12,6 +12,7 @@ import { PianoKeyboard } from './components/PianoKeyboard';
 import { RhythmGrid, type RhythmValue } from './components/RhythmGrid';
 import { ScaleBuilder } from './components/ScaleBuilder';
 import { applyStudioTransfer } from './studioTransfer';
+import { getAudioChoiceCandidates } from './audioChoice';
 import {
   createLessonSession,
   getCurrentStep,
@@ -155,22 +156,45 @@ function ChoiceStep({ step, answer, setAnswer, playSequence, playTimed }: StepPr
     if (material.length > 0 && typeof material[0] === 'object') playTimed?.(material as TimedAudioEvent[]);
     else playSequence?.((material as string[]).map((note) => parseNote(note).midi), .5);
   };
-  return (
-    <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3" role="group" aria-label="可选答案">
-      {choices.map((choice) => (
-        <span className="flex gap-2" key={String(choice)}>
-          <button
-            className="rounded-full border-2 border-[#102a43] px-5 py-3 font-bold"
-            onClick={() => preview(choice)}
-            type="button"
-          >试听 {String(choice)}</button>
+
+  if (!audioOptions) {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3" role="group" aria-label="可选答案">
+        {choices.map((choice) => (
           <button
             aria-pressed={answer === choice}
             className="rounded-full border-2 border-[#102a43] bg-[#fffaf0] px-6 py-3 font-bold text-[#102a43] aria-pressed:bg-[#e7c55f]"
+            key={String(choice)}
             onClick={() => setAnswer(choice)}
             type="button"
           >{String(choice)}</button>
-        </span>
+        ))}
+      </div>
+    );
+  }
+
+  const candidates = getAudioChoiceCandidates(step);
+  return (
+    <div className="mx-auto grid w-full max-w-3xl grid-flow-dense grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-3" role="group" aria-label="听辨候选">
+      {candidates.map((candidate) => (
+        <button
+          aria-label={`试听并选择候选 ${candidate.label}`}
+          aria-pressed={answer === candidate.choice}
+          className="group flex min-h-24 items-center justify-between rounded-2xl border-2 border-[#102a43] bg-[#fffaf0] px-6 py-4 text-[#102a43] shadow-[0_5px_0_rgba(16,42,67,0.14)] transition-[transform,box-shadow,background-color] duration-200 hover:-translate-y-1 hover:shadow-[0_8px_0_rgba(16,42,67,0.18)] active:translate-y-0 active:shadow-none aria-pressed:bg-[#e7c55f]"
+          key={candidate.label}
+          onClick={() => {
+            preview(candidate.choice);
+            setAnswer(candidate.choice);
+          }}
+          type="button"
+        >
+          <span className="font-serif text-3xl font-bold" aria-hidden="true">{candidate.label}</span>
+          <span aria-hidden="true" className="flex h-9 items-center gap-1">
+            {[4, 7, 9, 6, 3].map((height, index) => (
+              <span className="w-1 rounded-full bg-current transition-transform duration-200 group-hover:scale-y-110" key={index} style={{ height: `${height * 0.2}rem` }} />
+            ))}
+          </span>
+        </button>
       ))}
     </div>
   );

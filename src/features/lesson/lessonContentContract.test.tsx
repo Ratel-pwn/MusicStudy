@@ -11,6 +11,7 @@ import { pitchMiddleCLesson } from '../../content/lessons/pitch-middle-c';
 import { scaleCMajorLesson } from '../../content/lessons/scale-c-major';
 import { chordCMajorLesson } from '../../content/lessons/chord-c-major';
 import { createLessonSession, getCurrentStep, getExpectedAnswer, submitAnswer, validateStepAnswer } from './lessonEngine';
+import { getAudioChoiceCandidates } from './audioChoice';
 import { stepRenderers } from './LessonPage';
 
 it('gives every authored audio choice an explicit answer represented by its candidates', () => {
@@ -34,8 +35,9 @@ async function performAuthoredAction(step: LessonStep) {
     const expected = getExpectedAnswer(step);
     for (const note of (Array.isArray(expected) ? expected : [expected]) as string[]) await user.click(screen.getByRole('button', { name: note }));
   } else if (step.type === 'choice') {
-    await user.click(screen.getByRole('button', { name: `试听 ${String(getExpectedAnswer(step))}` }));
-    await user.click(screen.getByRole('button', { name: String(getExpectedAnswer(step)), pressed: false }));
+    const expected = getExpectedAnswer(step);
+    const candidate = getAudioChoiceCandidates(step).find(({ choice }) => choice === expected)!;
+    await user.click(screen.getByRole('button', { name: `试听并选择候选 ${candidate.label}`, pressed: false }));
   }
   else if (step.type === 'rhythmTap') {
     const count = (getExpectedAnswer(step) as number[]).length;
@@ -137,8 +139,9 @@ it('plays distinct authored material for each choice option', async () => {
   };
   const Renderer = stepRenderers.choice;
   render(<Renderer answer={undefined} playMidi={vi.fn()} playSequence={playSequence} setAnswer={vi.fn()} step={step} />);
-  await user.click(screen.getByRole('button', { name: '试听 A' }));
-  await user.click(screen.getByRole('button', { name: '试听 B' }));
+  const candidates = getAudioChoiceCandidates(step);
+  await user.click(screen.getByRole('button', { name: `试听并选择候选 ${candidates[0].label}` }));
+  await user.click(screen.getByRole('button', { name: `试听并选择候选 ${candidates[1].label}` }));
   expect(playSequence.mock.calls[0][0]).not.toEqual(playSequence.mock.calls[1][0]);
 });
 
@@ -152,8 +155,33 @@ it('routes typed choice timing to the timed audio scheduler', async () => {
   };
   const Renderer = stepRenderers.choice;
   render(<Renderer answer={undefined} playMidi={vi.fn()} playSequence={vi.fn()} playTimed={playTimed} setAnswer={vi.fn()} step={step} />);
-  await user.click(screen.getByRole('button', { name: '试听 A' }));
+  const candidate = getAudioChoiceCandidates(step).find(({ choice }) => choice === 'A')!;
+  await user.click(screen.getByRole('button', { name: `试听并选择候选 ${candidate.label}` }));
   expect(playTimed).toHaveBeenCalledWith(events);
+});
+
+it('keeps the central-C answer anonymous while previewing and storing the mapped candidate', async () => {
+  const user = userEvent.setup();
+  const playSequence = vi.fn();
+  const step = pitchMiddleCLesson.steps.find((item) => item.id === 'middle-c-choose')!;
+  const candidate = getAudioChoiceCandidates(step).find(({ choice }) => choice === '中央音区')!;
+  const Renderer = stepRenderers.choice;
+
+  function Harness() {
+    const [answer, setAnswer] = useState<unknown>();
+    return <><Renderer answer={answer} playMidi={vi.fn()} playSequence={playSequence} setAnswer={setAnswer} step={step} /><output data-testid="central-c-answer">{JSON.stringify(answer)}</output></>;
+  }
+
+  render(<Harness />);
+
+  const buttons = screen.getAllByRole('button');
+  for (const note of ['C3', 'C4', 'C5']) {
+    expect(buttons.every((button) => !button.getAttribute('aria-label')?.includes(note) && !button.textContent?.includes(note))).toBe(true);
+  }
+
+  await user.click(screen.getByRole('button', { name: `试听并选择候选 ${candidate.label}`, pressed: false }));
+  expect(playSequence).toHaveBeenCalledWith([60], .5);
+  expect(screen.getByTestId('central-c-answer')).toHaveTextContent('中央音区');
 });
 
 it('starts an audible BPM target with absolute beat timestamps', async () => {

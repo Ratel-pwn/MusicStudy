@@ -3,6 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
 import { db } from '../../data/db';
+import { pitchHighLowLesson } from '../../content/lessons/pitch-high-low';
+import { pitchMiddleCLesson } from '../../content/lessons/pitch-middle-c';
+import { getAudioChoiceCandidates } from '../lesson/audioChoice';
 import { PracticePage } from './PracticePage';
 import type { PracticeItem } from './scheduler';
 
@@ -27,6 +30,9 @@ const items: PracticeItem[] = [
   { id: 'weak:rhythm', source: 'weak', skillId: 'rhythm', mastery: 22 },
 ];
 
+const highLowStep = pitchHighLowLesson.steps.find((item) => item.id === 'high-low-choose')!;
+const higherCandidate = getAudioChoiceCandidates(highLowStep).find(({ choice }) => choice === '更高')!;
+
 describe('PracticePage', () => {
   beforeEach(async () => {
     await db.delete();
@@ -46,7 +52,7 @@ describe('PracticePage', () => {
     expect(screen.queryByRole('heading', { name: /节奏/ })).not.toBeInTheDocument();
 
     expect(screen.queryByRole('button', { name: '独立完成' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /^更高$/ }));
+    await user.click(screen.getByRole('button', { name: `试听并选择候选 ${higherCandidate.label}` }));
     await user.click(screen.getByRole('button', { name: '提交答案' }));
     await user.click(screen.getByRole('button', { name: '继续' }));
 
@@ -57,8 +63,31 @@ describe('PracticePage', () => {
   it('plays authored comparison audio inside a practice item', async () => {
     const user = userEvent.setup();
     render(<PracticePage items={[items[0]]} />);
-    await user.click(screen.getByRole('button', { name: /^试听 更高$/ }));
+    const highLowChoice = screen.getAllByRole('button', { name: /试听并选择候选/ })[0];
+    await user.click(highLowChoice);
     expect(practiceAudio.playSequence).toHaveBeenCalled();
+  });
+
+  it('runs the anonymous central-C choice through practice without exposing note names', async () => {
+    const user = userEvent.setup();
+    const keyboardItem: PracticeItem = { id: 'weak:keyboard', source: 'weak', skillId: 'keyboard', mastery: 18 };
+    const step = pitchMiddleCLesson.steps.find((item) => item.id === 'middle-c-choose')!;
+    const candidate = getAudioChoiceCandidates(step).find(({ choice }) => choice === '中央音区')!;
+
+    render(<PracticePage items={[keyboardItem]} />);
+
+    const candidateButtons = screen.getAllByRole('button', { name: /试听并选择候选/ });
+    expect(candidateButtons).toHaveLength(3);
+    for (const note of ['C3', 'C4', 'C5']) {
+      expect(candidateButtons.every((button) => !button.getAttribute('aria-label')?.includes(note) && !button.textContent?.includes(note))).toBe(true);
+    }
+
+    await user.click(screen.getByRole('button', { name: `试听并选择候选 ${candidate.label}`, pressed: false }));
+    expect(practiceAudio.playSequence).toHaveBeenCalledWith([60], .5);
+    expect(screen.getByRole('button', { name: '提交答案' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: '提交答案' }));
+    await user.click(screen.getByRole('button', { name: '继续' }));
+    expect(await screen.findByRole('heading', { name: '今天的练习航道已走完' })).toBeInTheDocument();
   });
 
   it('uses a real authored notation construction instead of the generic fallback', async () => {
@@ -79,7 +108,7 @@ describe('PracticePage', () => {
     const user = userEvent.setup();
     render(<PracticePage items={[items[0]]} now={() => new Date('2026-07-11T08:00:00.000Z')} />);
 
-    await user.click(screen.getByRole('button', { name: /^更高$/ }));
+    await user.click(screen.getByRole('button', { name: `试听并选择候选 ${higherCandidate.label}` }));
     await user.click(screen.getByRole('button', { name: '提交答案' }));
     await user.click(screen.getByRole('button', { name: '继续' }));
 
@@ -97,7 +126,7 @@ describe('PracticePage', () => {
     const user = userEvent.setup();
     render(<PracticePage items={[items[0]]} now={() => new Date('2026-07-10T16:30:00.000Z')} />);
 
-    await user.click(screen.getByRole('button', { name: /^更高$/ }));
+    await user.click(screen.getByRole('button', { name: `试听并选择候选 ${higherCandidate.label}` }));
     await user.click(screen.getByRole('button', { name: '提交答案' }));
     await user.click(screen.getByRole('button', { name: '继续' }));
 
