@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType, type MouseEvent } from 'react';
 import type { Lesson, LessonStep, LessonStepType } from '../../content/schema';
 import { useAudio } from '../../audio/useAudio';
 import type { TimedAudioEvent } from '../../audio/AudioEngine';
@@ -280,6 +280,32 @@ function restoreSession(lesson: Lesson): LessonSession {
   }
 }
 
+function RestartDialog({ open, onCancel, onConfirm }: { open: boolean; onCancel(): void; onConfirm(): void }) {
+  if (!open) return null;
+  const dismissFromBackdrop = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onCancel();
+  };
+  return (
+    <div className="fixed inset-0 z-90 grid place-items-center bg-[#102a43]/45 px-5 backdrop-blur-sm" onMouseDown={dismissFromBackdrop}>
+      <div
+        aria-describedby="restart-description"
+        aria-labelledby="restart-title"
+        aria-modal="true"
+        className="w-full max-w-lg rounded-[2rem] border-2 border-[#102a43] bg-[#fffaf0] p-6 shadow-[0_24px_0_rgba(16,42,67,.28)] sm:p-8"
+        onKeyDown={(event) => { if (event.key === 'Escape') onCancel(); }}
+        role="dialog"
+      >
+        <h2 className="font-serif text-3xl font-bold" id="restart-title">重新开始本关？</h2>
+        <p className="mt-3 leading-relaxed text-[#102a43]/75" id="restart-description">本次关卡的答案、提示和进度会清空。已经获得的星级与学习记录会保留。</p>
+        <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button autoFocus className="rounded-full border-2 border-[#102a43] px-6 py-3 font-bold text-[#102a43]" onClick={onCancel} type="button">继续学习</button>
+          <button className="rounded-full border-2 border-[#102a43] bg-[#ef765d] px-6 py-3 font-bold text-[#102a43]" onClick={onConfirm} type="button">确认重新开始</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void }) {
   const { engine, status, unlock } = useAudio();
   const completeLesson = useProgressStore((state) => state.completeLesson);
@@ -287,6 +313,9 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
   const [session, setSession] = useState(() => restoreSession(lesson));
   const [answer, setAnswer] = useState<unknown>();
   const [feedback, setFeedback] = useState<FeedbackResult>();
+  const [restartOpen, setRestartOpen] = useState(false);
+  const [runId, setRunId] = useState(0);
+  const activeRunId = useRef(0);
   const step = session.stepIndex < lesson.steps.length ? getCurrentStep(session) : undefined;
   const progress = Math.min(100, ((session.stepIndex + 1) / lesson.steps.length) * 100);
   const Renderer = step ? stepRenderers[step.type] : null;
@@ -367,10 +396,26 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
     await finishLesson(session);
   };
 
+  const restartLesson = () => {
+    engine.stop();
+    activeRunId.current += 1;
+    localStorage.removeItem(storageKey(lesson.id));
+    setFeedback(undefined);
+    setAnswer(undefined);
+    setSession(createLessonSession(lesson));
+    setRunId(activeRunId.current);
+    setRestartOpen(false);
+  };
+
+  const rendererRunId = runId;
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_85%_10%,rgba(231,197,95,.28),transparent_28%),linear-gradient(145deg,#f6ecd7,#fffaf0)] text-[#102a43]">
-      <header className="mx-auto flex max-w-6xl items-center gap-5 px-5 py-5">
-        <button className="rounded-full border-2 border-[#102a43] px-4 py-2 font-bold" onClick={onExit} type="button">退出课程</button>
+      <header className="mx-auto flex max-w-6xl items-center gap-3 px-5 py-5 sm:gap-5">
+        <div className="flex shrink-0 gap-2">
+          <button aria-label="退出课程" className="rounded-full border-2 border-[#102a43] px-3 py-2 text-sm font-bold sm:px-4 sm:text-base" onClick={onExit} type="button"><span className="hidden sm:inline">退出课程</span><span aria-hidden className="sm:hidden">退出</span></button>
+          <button aria-label="重新开始" className="rounded-full border-2 border-[#102a43] bg-[#e7c55f] px-3 py-2 text-sm font-bold transition-transform duration-200 hover:-translate-y-0.5 sm:px-4 sm:text-base" onClick={() => setRestartOpen(true)} type="button"><span className="hidden sm:inline">重新开始</span><span aria-hidden className="sm:hidden">重开</span></button>
+        </div>
         <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#102a43]/15" role="progressbar" aria-label="课程进度" aria-valuenow={progress}>
           <div className="h-full rounded-full bg-[#4eaa94] transition-[width] duration-300" style={{ width: `${progress}%` }} />
         </div>
@@ -382,13 +427,15 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
           <h1 className="mx-auto mb-12 max-w-4xl text-center font-serif text-[clamp(2rem,4vw,4.5rem)] font-bold leading-tight">{step.prompt}</h1>
           <div className="my-auto">
             <Renderer
-              key={step.id}
+              key={`${step.id}:${runId}`}
               answer={answer}
               playMidi={(midi) => void playMidi(midi)}
               playSequence={(midis, interval) => void playSequence(midis, interval)}
               playTimed={(events) => void playTimed(events)}
               startMetronome={startMetronome}
-              setAnswer={setAnswer}
+              setAnswer={(nextAnswer) => {
+                if (activeRunId.current === rendererRunId) setAnswer(nextAnswer);
+              }}
               step={step}
             />
           </div>
@@ -425,6 +472,7 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
         onDismiss={() => setFeedback(undefined)}
         open={feedback !== undefined}
       />
+      <RestartDialog onCancel={() => setRestartOpen(false)} onConfirm={restartLesson} open={restartOpen} />
     </main>
   );
 }

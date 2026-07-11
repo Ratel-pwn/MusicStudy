@@ -132,7 +132,52 @@ it('tabs from the exit action into the primary lesson interaction', async () => 
   await user.tab();
   expect(screen.getByRole('button', { name: '退出课程' })).toHaveFocus();
   await user.tab();
+  expect(screen.getByRole('button', { name: '重新开始' })).toHaveFocus();
+  await user.tab();
   expect(screen.getByRole('button', { name: 'C4' })).toHaveFocus();
+});
+
+it('cancels restarting and keeps the current lesson step', async () => {
+  const user = userEvent.setup();
+  const saved = { ...createLessonSession(lesson), stepIndex: 1, correctCount: 1, attempts: 1 };
+  localStorage.setItem(`musicstudy:lesson:${lesson.id}`, JSON.stringify(saved));
+  render(<LessonPage lesson={lesson} onExit={vi.fn()} />);
+
+  await user.click(screen.getByRole('button', { name: '重新开始' }));
+  expect(screen.getByRole('dialog', { name: '重新开始本关？' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '继续学习' }));
+
+  expect(screen.queryByRole('dialog', { name: '重新开始本关？' })).not.toBeInTheDocument();
+  expect(screen.getByText('听一次收束')).toBeInTheDocument();
+  expect(screen.getByText('2 / 2')).toBeInTheDocument();
+});
+
+it('confirms restarting and clears session, feedback, audio, and same-step renderer state', async () => {
+  const user = userEvent.setup();
+  render(<LessonPage lesson={lesson} onExit={vi.fn()} />);
+
+  const wrongKey = screen.getByRole('button', { name: 'D4' });
+  await user.click(wrongKey);
+  expect(wrongKey).toHaveAttribute('aria-pressed', 'true');
+  await user.click(screen.getByRole('button', { name: '提交答案' }));
+  expect(screen.getByRole('dialog', { name: '需要调整，反馈级别 1' })).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: '重新开始' }));
+  await user.click(screen.getByRole('button', { name: '确认重新开始' }));
+
+  expect(audio.stop).toHaveBeenCalled();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByText('弹出中央 C')).toBeInTheDocument();
+  expect(screen.getByText('1 / 2')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'D4' })).toHaveAttribute('aria-pressed', 'false');
+  expect(screen.getByRole('button', { name: '提交答案' })).toBeDisabled();
+  expect(JSON.parse(localStorage.getItem(`musicstudy:lesson:${lesson.id}`) ?? '{}')).toMatchObject({
+    stepIndex: 0,
+    correctCount: 0,
+    attempts: 0,
+    hintLevel: 0,
+    answers: [],
+  });
 });
 
 it('clears a full original scale answer on variant switch and completes the real variant', async () => {

@@ -43,3 +43,24 @@ test('八小节观察图在手机与宽屏上保持正确分组', async ({ page 
   if ((page.viewportSize()?.width ?? 0) < 640) expect(second!.y).toBeGreaterThan(first!.y);
   else expect(second!.x).toBeGreaterThan(first!.x);
 });
+
+test('取消或确认重新开始后仍可完整完成第一关', async ({ page }) => {
+  await resetApp(page, '/lesson/pitch-high-low');
+  await page.getByRole('button', { name: '播放示范' }).click();
+  await continueGuidedStep(page);
+  await expect(page.getByText('2 / 6')).toBeVisible();
+
+  await page.getByRole('button', { name: '重新开始' }).click();
+  await expect(page.getByRole('dialog', { name: '重新开始本关？' })).toBeVisible();
+  await page.getByRole('button', { name: '继续学习' }).click();
+  await expect(page.getByText('2 / 6')).toBeVisible();
+
+  await page.getByRole('button', { name: '重新开始' }).click();
+  await page.getByRole('button', { name: '确认重新开始' }).click();
+  await expect(page.getByText('1 / 6')).toBeVisible();
+  await expect(page.getByRole('button', { name: '播放示范' })).toBeVisible();
+
+  await completeHighLowLesson(page);
+  await expect(page.getByRole('heading', { name: '课程完成' })).toBeVisible();
+  await expect(page.getByText('100 分 · 3 星')).toBeVisible();
+});
