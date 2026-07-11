@@ -13,6 +13,18 @@ import { chordCMajorLesson } from '../../content/lessons/chord-c-major';
 import { createLessonSession, getCurrentStep, getExpectedAnswer, submitAnswer, validateStepAnswer } from './lessonEngine';
 import { stepRenderers } from './LessonPage';
 
+it('gives every authored audio choice an explicit answer represented by its candidates', () => {
+  const audioChoices = lessons
+    .flatMap((lesson) => lesson.steps)
+    .filter((step) => step.type === 'choice' && step.config.audioOptions !== undefined);
+
+  for (const step of audioChoices) {
+    expect(step.config, step.id).toHaveProperty('answer');
+    expect(step.config.choices, step.id).toContain(step.config.answer);
+    expect(step.config.audioOptions, step.id).toHaveProperty(String(step.config.answer));
+  }
+});
+
 async function performAuthoredAction(step: LessonStep) {
   const user = userEvent.setup();
   if (step.type === 'listen') await user.click(screen.getByRole('button', { name: '播放示范' }));
