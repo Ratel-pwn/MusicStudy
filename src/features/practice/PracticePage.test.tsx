@@ -6,7 +6,7 @@ import { db } from '../../data/db';
 import { PracticePage } from './PracticePage';
 import type { PracticeItem } from './scheduler';
 
-const practiceAudio = vi.hoisted(() => ({ playSequence: vi.fn(), startMetronome: vi.fn(), stop: vi.fn() }));
+const practiceAudio = vi.hoisted(() => ({ playSequence: vi.fn(), playTimed: vi.fn(), startMetronome: vi.fn(), stop: vi.fn() }));
 vi.mock('../../audio/useAudio', () => ({
   useAudio: () => ({ engine: practiceAudio, status: 'ready', unlock: vi.fn() }),
 }));
@@ -59,6 +59,20 @@ describe('PracticePage', () => {
     render(<PracticePage items={[items[0]]} />);
     await user.click(screen.getByRole('button', { name: /^试听 更高$/ }));
     expect(practiceAudio.playSequence).toHaveBeenCalled();
+  });
+
+  it('uses a real authored notation construction instead of the generic fallback', async () => {
+    const user = userEvent.setup();
+    const notationItem: PracticeItem = { id: 'weak:notation', source: 'weak', skillId: 'notation', mastery: 18 };
+    render(<PracticePage items={[notationItem]} />);
+    expect(screen.getByRole('group', { name: '节奏素材' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '符合规则' })).not.toBeInTheDocument();
+    for (let beat = 1; beat <= 4; beat += 1) {
+      await user.click(screen.getByRole('button', { name: `第 ${beat} 拍，空` }));
+    }
+    await user.click(screen.getByRole('button', { name: '提交答案' }));
+    await user.click(screen.getByRole('button', { name: '继续' }));
+    expect(screen.getByRole('heading', { name: '今天的练习航道已走完' })).toBeInTheDocument();
   });
 
   it('persists mastery and the next review date when a task is completed', async () => {

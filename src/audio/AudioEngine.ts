@@ -4,6 +4,8 @@ import type { TrackKind } from '../domain/music/types';
 
 type TrackInstrument = Tone.NoiseSynth | Tone.MonoSynth | Tone.PolySynth | Tone.Synth;
 
+export type TimedAudioEvent = { midi: number; offsetBeats: number; durationBeats: number; velocity?: number };
+
 export type AudioTestSpy = {
   unlockCalls: number;
   playedMidi: number[];
@@ -25,7 +27,8 @@ export interface MusicAudioEngine {
   playMidi(midi: number, durationBeats?: number, velocity?: number): void;
   previewChord(midis: number[]): void;
   playSequence(midis: number[], intervalBeats?: number): void;
-  startMetronome(bpm: number): void;
+  playTimed(events: readonly TimedAudioEvent[]): void;
+  startMetronome(bpm: number): Promise<number>;
   playComposition(composition: Composition, options?: { startBeat?: number; onStop?: () => void }): void;
   stop(): void;
   dispose(): void;
@@ -92,19 +95,28 @@ export class AudioEngine implements MusicAudioEngine {
       spy.playedMidi.push(...midis);
       return;
     }
+    this.playTimed(midis.map((midi, index) => ({ midi, offsetBeats: index * intervalBeats, durationBeats: intervalBeats * .8 })));
+  }
+
+  playTimed(events: readonly TimedAudioEvent[]): void {
+    const spy = audioTestSpy();
+    if (spy) {
+      spy.playedMidi.push(...events.map((event) => event.midi));
+      return;
+    }
     this.stop();
     this.resetTransport();
     const secondsPerBeat = 60 / Tone.Transport.bpm.value;
-    midis.forEach((midi, index) => {
+    events.forEach((event) => {
       Tone.Transport.schedule((time) => {
-        this.synth?.triggerAttackRelease(midiToNote(midi), intervalBeats * secondsPerBeat * .8, time, .8);
-      }, index * intervalBeats * secondsPerBeat);
+        this.synth?.triggerAttackRelease(midiToNote(event.midi), event.durationBeats * secondsPerBeat, time, event.velocity ?? .8);
+      }, event.offsetBeats * secondsPerBeat);
     });
     Tone.Transport.start(undefined, 0);
   }
 
-  startMetronome(bpm: number): void {
-    if (audioTestSpy()) return;
+  async startMetronome(bpm: number): Promise<number> {
+    if (audioTestSpy()) return performance.now();
     this.stop();
     this.resetTransport();
     Tone.Transport.bpm.value = bpm;
@@ -112,6 +124,7 @@ export class AudioEngine implements MusicAudioEngine {
       this.metronomeSynth?.triggerAttackRelease('C6', '32n', time, 0.7);
     }, '4n');
     Tone.Transport.start(undefined, 0);
+    return performance.now();
   }
 
   playComposition(composition: Composition, options: { startBeat?: number; onStop?: () => void } = {}): void {

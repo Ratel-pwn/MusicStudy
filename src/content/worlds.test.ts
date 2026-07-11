@@ -21,6 +21,18 @@ describe('playable curriculum', () => {
       expect(new Set(Object.values(audioOptions ?? {}).map((notes) => JSON.stringify(notes))).size, step.id).toBe(choices.length);
     });
   });
+
+  it('authors materially different timing for steady/uneven and even/rushed rhythm options', () => {
+    for (const stepId of ['quarter-pulse-choose', 'eighth-choose']) {
+      const step = lessons.flatMap((lesson) => lesson.steps).find((candidate) => candidate.id === stepId)!;
+      const options = Object.values(step.config.audioOptions as Record<string, Array<{ offsetBeats?: number }>>);
+      const offsets = options.map((events) => events.map((event) => event.offsetBeats));
+      expect(offsets[0].every((offset) => typeof offset === 'number'), stepId).toBe(true);
+      expect(offsets[0], stepId).not.toEqual(offsets[1]);
+      expect(offsets[0].slice(1).map((value, index) => Number(value) - Number(offsets[0][index])), stepId)
+        .not.toEqual(offsets[1].slice(1).map((value, index) => Number(value) - Number(offsets[1][index])));
+    }
+  });
   it('contains exactly the eight required playable lessons', () => {
     expect(lessons.map((lesson) => lesson.id)).toEqual(PLAYABLE_IDS);
     expect(PLAYABLE_IDS.map((id) => getLesson(id)?.id)).toEqual(PLAYABLE_IDS);

@@ -6,6 +6,7 @@ import type { ReviewRecord } from '../../data/db';
 import type { LessonStep, SkillId } from '../../content/schema';
 import { lessons } from '../../content/worlds';
 import { useAudio } from '../../audio/useAudio';
+import type { TimedAudioEvent } from '../../audio/AudioEngine';
 import { FeedbackSheet } from '../lesson/components/FeedbackSheet';
 import { stepRenderers } from '../lesson/LessonPage';
 import { createLessonSession, getHint, requestHint, submitAnswer, type FeedbackResult } from '../lesson/lessonEngine';
@@ -51,7 +52,11 @@ export type PracticePageProps = {
 
 function practiceStep(item: PracticeItem): LessonStep {
   const skillId = item.source === 'composition' ? 'creation' : item.skillId;
-  const authored = lessons.flatMap((lesson) => lesson.steps).find((step) => step.type === 'choice' && step.skillIds.includes(skillId));
+  const authoredSteps = lessons.flatMap((lesson) => lesson.steps);
+  const authored = authoredSteps.find((step) => step.type === 'choice' && step.skillIds.includes(skillId))
+    ?? (skillId === 'notation'
+      ? authoredSteps.find((step) => step.type === 'rhythmBuild' && step.skillIds.includes('notation') && Array.isArray(step.config.units))
+      : undefined);
   if (authored) return authored;
   return {
     id: `practice-${skillId}`,
@@ -86,6 +91,11 @@ export function PracticePage({ items, now = () => new Date() }: PracticePageProp
   const playSequence = async (midis: number[], interval?: number) => {
     if (status !== 'ready') await unlock();
     engine.playSequence(midis, interval);
+  };
+
+  const playTimed = async (events: readonly TimedAudioEvent[]) => {
+    if (status !== 'ready') await unlock();
+    engine.playTimed(events);
   };
 
   const complete = async (correct: boolean, hints: number) => {
@@ -161,7 +171,7 @@ export function PracticePage({ items, now = () => new Date() }: PracticePageProp
                 {step && Renderer && session && (
                   <>
                     <p>{step.prompt}</p>
-                    <Renderer answer={answer} playMidi={() => undefined} playSequence={(midis, interval) => void playSequence(midis, interval)} setAnswer={setAnswer} step={step} />
+                    <Renderer answer={answer} playMidi={() => undefined} playSequence={(midis, interval) => void playSequence(midis, interval)} playTimed={(events) => void playTimed(events)} setAnswer={setAnswer} step={step} />
                     {session.hintLevel > 0 && <p>提示 {session.hintLevel}：{getHint(session)}</p>}
                   </>
                 )}

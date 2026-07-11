@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import type { Lesson, LessonStep, LessonStepType } from '../../content/schema';
 import { useAudio } from '../../audio/useAudio';
+import type { TimedAudioEvent } from '../../audio/AudioEngine';
 import type { NoteName } from '../../domain/music/types';
 import { parseNote } from '../../domain/music/pitch';
 import { useProgressStore } from '../../stores/useProgressStore';
@@ -28,7 +29,8 @@ export type StepProps = {
   setAnswer(answer: unknown): void;
   playMidi(midi: number): void;
   playSequence?(midis: number[], intervalBeats?: number): void;
-  startMetronome?(bpm: number): void;
+  playTimed?(events: readonly TimedAudioEvent[]): void;
+  startMetronome?(bpm: number): Promise<number>;
   now?(): number;
 };
 
@@ -103,9 +105,9 @@ function RhythmTapStep({ step, answer, setAnswer, startMetronome, now = () => pe
   const target = getExpectedAnswer(step) as number[];
   const bpm = typeof step.config.bpm === 'number' ? step.config.bpm : 90;
   const interval = 60_000 / bpm / (typeof step.config.subdivision === 'number' ? step.config.subdivision : 1) * (authoredAccents ? 4 : 1);
-  const start = () => {
-    startMetronome?.(bpm);
-    const startedAt = now();
+  const start = async () => {
+    if (!startMetronome) return;
+    const startedAt = await startMetronome(bpm);
     setAnswer({
       timestamps: [],
       targetTimestamps: Array.from({ length: target.length }, (_, index) => startedAt + (index + 1) * interval),
@@ -121,7 +123,7 @@ function RhythmTapStep({ step, answer, setAnswer, startMetronome, now = () => pe
   return (
     <div className="text-center">
       <p className="mb-4 font-bold">{bpm} BPM</p>
-      <button className="mb-4 rounded-full bg-[#102a43] px-5 py-3 font-bold text-[#fff4d6]" onClick={start} type="button">开始节拍</button>
+      <button className="mb-4 rounded-full bg-[#102a43] px-5 py-3 font-bold text-[#fff4d6]" onClick={() => void start()} type="button">开始节拍</button>
       {authoredAccents && <button aria-pressed={accentNext} className="mb-4 rounded-full border-2 border-[#102a43] px-5 py-3 font-bold" onClick={() => setAccentNext((value) => !value)} type="button">下一小节重拍</button>}
       <button
         aria-label={`打拍，${taps.length} / ${target.length}`}
@@ -144,16 +146,21 @@ function ChordStep({ step, answer, setAnswer }: StepProps) {
   return <ChordBuilder availableNotes={availableNotes} onChange={setAnswer} value={(answer as NoteName[] | undefined) ?? []} />;
 }
 
-function ChoiceStep({ step, answer, setAnswer, playSequence }: StepProps) {
+function ChoiceStep({ step, answer, setAnswer, playSequence, playTimed }: StepProps) {
   const choices = Array.isArray(step.config.choices) ? step.config.choices : [];
-  const audioOptions = step.config.audioOptions as Record<string, string[]> | undefined;
+  const audioOptions = step.config.audioOptions as Record<string, string[] | TimedAudioEvent[]> | undefined;
+  const preview = (choice: unknown) => {
+    const material = audioOptions?.[String(choice)] ?? [];
+    if (material.length > 0 && typeof material[0] === 'object') playTimed?.(material as TimedAudioEvent[]);
+    else playSequence?.((material as string[]).map((note) => parseNote(note).midi), .5);
+  };
   return (
     <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3" role="group" aria-label="可选答案">
       {choices.map((choice) => (
         <span className="flex gap-2" key={String(choice)}>
           <button
             className="rounded-full border-2 border-[#102a43] px-5 py-3 font-bold"
-            onClick={() => playSequence?.((audioOptions?.[String(choice)] ?? []).map((note) => parseNote(note).midi), .5)}
+            onClick={() => preview(choice)}
             type="button"
           >试听 {String(choice)}</button>
           <button
@@ -278,9 +285,14 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
     engine.playSequence(midis, interval);
   };
 
-  const startMetronome = async (bpm: number) => {
+  const playTimed = async (events: readonly TimedAudioEvent[]) => {
     if (status !== 'ready') await unlock();
-    engine.startMetronome(bpm);
+    engine.playTimed(events);
+  };
+
+  const startMetronome = async (bpm: number): Promise<number> => {
+    if (status !== 'ready') await unlock();
+    return engine.startMetronome(bpm);
   };
 
   useEffect(() => () => engine.stop(), [engine]);
@@ -335,7 +347,8 @@ export function LessonPage({ lesson, onExit }: { lesson: Lesson; onExit(): void 
               answer={answer}
               playMidi={(midi) => void playMidi(midi)}
               playSequence={(midis, interval) => void playSequence(midis, interval)}
-              startMetronome={(bpm) => void startMetronome(bpm)}
+              playTimed={(events) => void playTimed(events)}
+              startMetronome={startMetronome}
               setAnswer={setAnswer}
               step={step}
             />

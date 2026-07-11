@@ -70,7 +70,7 @@ function RendererHarness({ step }: { step: LessonStep }) {
   const interval = 60_000 / (typeof step.config.bpm === 'number' ? step.config.bpm : 90) / (typeof step.config.subdivision === 'number' ? step.config.subdivision : 1) * (Array.isArray(step.config.accents) ? 4 : 1);
   const time = useRef(-interval);
   const Renderer = stepRenderers[step.type];
-  return <><Renderer answer={answer} now={() => { time.current += interval; return time.current; }} playMidi={vi.fn()} playSequence={vi.fn()} setAnswer={setAnswer} step={step} /><output data-testid="renderer-answer">{JSON.stringify(answer)}</output></>;
+  return <><Renderer answer={answer} now={() => { time.current += interval; return time.current; }} playMidi={vi.fn()} playSequence={vi.fn()} setAnswer={setAnswer} startMetronome={async () => -interval} step={step} /><output data-testid="renderer-answer">{JSON.stringify(answer)}</output></>;
 }
 
 it('derives a C3 through C5 keyboard from the real first lesson step', () => {
@@ -129,18 +129,54 @@ it('plays distinct authored material for each choice option', async () => {
   expect(playSequence.mock.calls[0][0]).not.toEqual(playSequence.mock.calls[1][0]);
 });
 
+it('routes typed choice timing to the timed audio scheduler', async () => {
+  const user = userEvent.setup();
+  const playTimed = vi.fn();
+  const events = [{ midi: 60, offsetBeats: 0, durationBeats: .25 }, { midi: 60, offsetBeats: .4, durationBeats: .25 }];
+  const step: LessonStep = {
+    id: 'timed-choice', type: 'choice', prompt: 'compare rhythm', skillIds: ['rhythm'],
+    config: { choices: ['A', 'B'], answer: 'A', audioOptions: { A: events, B: [{ ...events[1], offsetBeats: .2 }] } }, feedback: {},
+  };
+  const Renderer = stepRenderers.choice;
+  render(<Renderer answer={undefined} playMidi={vi.fn()} playSequence={vi.fn()} playTimed={playTimed} setAnswer={vi.fn()} step={step} />);
+  await user.click(screen.getByRole('button', { name: '试听 A' }));
+  expect(playTimed).toHaveBeenCalledWith(events);
+});
+
 it('starts an audible BPM target with absolute beat timestamps', async () => {
   const user = userEvent.setup();
   const step: LessonStep = { id: 'timed', type: 'rhythmTap', prompt: 'tap', skillIds: ['rhythm'], config: { bpm: 60, taps: 3 }, feedback: {} };
   const Renderer = stepRenderers.rhythmTap;
   const answers: unknown[] = [];
-  const startMetronome = vi.fn();
+  const startMetronome = vi.fn(async () => 0);
   const values = [0, 1000, 2000, 3000];
   render(<Renderer answer={answers.at(-1)} now={() => values.shift() ?? 3000} playMidi={vi.fn()} playSequence={vi.fn()} setAnswer={(answer) => answers.push(answer)} startMetronome={startMetronome} step={step} />);
   expect(screen.getByText('60 BPM')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '开始节拍' }));
   expect(startMetronome).toHaveBeenCalledWith(60);
   expect(answers.at(-1)).toMatchObject({ targetTimestamps: [1000, 2000, 3000] });
+});
+
+function AsyncTimedHarness({ startMetronome, now }: { startMetronome(bpm: number): Promise<number>; now(): number }) {
+  const [answer, setAnswer] = useState<unknown>();
+  const step: LessonStep = { id: 'async-timed', type: 'rhythmTap', prompt: 'tap', skillIds: ['rhythm'], config: { bpm: 60, taps: 3 }, feedback: {} };
+  const Renderer = stepRenderers.rhythmTap;
+  return <><Renderer answer={answer} now={now} playMidi={vi.fn()} setAnswer={setAnswer} startMetronome={startMetronome} step={step} /><output data-testid="async-timed-answer">{JSON.stringify(answer)}</output></>;
+}
+
+it('waits for real metronome start before activating targets and accepts on-beat taps', async () => {
+  const user = userEvent.setup();
+  let resolveStart!: (startedAt: number) => void;
+  const delayedStart = vi.fn(() => new Promise<number>((resolve) => { resolveStart = resolve; }));
+  const tapTimes = [1500, 2500, 3500];
+  render(<AsyncTimedHarness now={() => tapTimes.shift() ?? 3500} startMetronome={delayedStart} />);
+  await user.click(screen.getByRole('button', { name: '开始节拍' }));
+  expect(screen.getByTestId('async-timed-answer')).toBeEmptyDOMElement();
+  resolveStart(500);
+  await waitFor(() => expect(screen.getByTestId('async-timed-answer')).toHaveTextContent('targetTimestamps'));
+  for (let index = 0; index < 3; index += 1) await user.click(screen.getByRole('button', { name: /打拍/ }));
+  const answer = JSON.parse(screen.getByTestId('async-timed-answer').textContent ?? 'null');
+  expect(validateStepAnswer({ id: 'async-timed', type: 'rhythmTap', prompt: 'tap', skillIds: ['rhythm'], config: { bpm: 60, taps: 3 }, feedback: {} }, answer)).toBe(true);
 });
 
 it('requires the octave tonic as the eighth C-major scale item', () => {

@@ -22,7 +22,7 @@ const tone = vi.hoisted(() => {
     loopStart: 0,
     loopEnd: 0,
     position: 0,
-    schedule: vi.fn((callback: (time: number) => void) => {
+    schedule: vi.fn((callback: (time: number) => void, _position?: number) => {
       callback(42);
       return 1;
     }),
@@ -189,6 +189,19 @@ describe('AudioEngine', () => {
     expect(tone.Transport.schedule).toHaveBeenNthCalledWith(1, expect.any(Function), 0);
     expect(tone.Transport.schedule).toHaveBeenNthCalledWith(2, expect.any(Function), .25);
     expect(tone.Transport.schedule).toHaveBeenNthCalledWith(3, expect.any(Function), .5);
+  });
+
+  it('schedules authored timed events at their exact beat offsets', async () => {
+    const engine = createEngine();
+    await engine.unlock();
+    const playTimed = (engine as unknown as { playTimed?: (events: unknown[]) => void }).playTimed;
+    expect(typeof playTimed).toBe('function');
+    (engine as unknown as { playTimed(events: Array<{ midi: number; offsetBeats: number; durationBeats: number }>): void }).playTimed([
+      { midi: 60, offsetBeats: 0, durationBeats: .25 },
+      { midi: 64, offsetBeats: .75, durationBeats: .5 },
+      { midi: 67, offsetBeats: 1.25, durationBeats: .25 },
+    ]);
+    expect(tone.Transport.schedule.mock.calls.map((call) => call[1])).toEqual([0, .375, .625]);
   });
 
   it('starts a metronome on the shared Transport', async () => {
