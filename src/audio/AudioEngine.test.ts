@@ -99,8 +99,26 @@ describe('AudioEngine', () => {
 
   afterEach(() => {
     engines.splice(0).forEach((engine) => engine.dispose());
+    delete globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__;
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
     vi.restoreAllMocks();
+  });
+
+  it('uses the explicit browser-test spy without creating Tone resources', async () => {
+    globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__ = { unlockCalls: 0, playedMidi: [], playedCompositions: 0 };
+    const engine = createEngine();
+
+    await expect(engine.unlock()).resolves.toBe('ready');
+    engine.playMidi(60);
+    engine.playComposition(composition);
+
+    expect(globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__).toEqual({
+      unlockCalls: 1,
+      playedMidi: [60],
+      playedCompositions: 1,
+    });
+    expect(tone.start).not.toHaveBeenCalled();
+    expect(tone.Synth).not.toHaveBeenCalled();
   });
 
   it('constructs without creating Tone nodes or registering document listeners', () => {

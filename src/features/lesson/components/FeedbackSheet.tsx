@@ -18,7 +18,7 @@ export function FeedbackSheet({ open, correct, level, message, onContinue, onDis
   return (
     <div
       aria-label={correct ? '回答正确' : `需要调整，反馈级别 ${level}`}
-      className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-3xl rounded-t-[2.5rem] border-2 border-b-0 border-[#102a43] bg-[#fffaf0] px-6 py-6 shadow-[0_-18px_60px_rgba(11,34,54,.18)]"
+      className="fixed inset-x-0 bottom-0 z-70 mx-auto max-w-3xl rounded-t-[2.5rem] border-2 border-b-0 border-[#102a43] bg-[#fffaf0] px-6 py-6 shadow-[0_-18px_60px_rgba(11,34,54,.18)]"
       onKeyDown={dismiss}
       role="dialog"
       tabIndex={-1}

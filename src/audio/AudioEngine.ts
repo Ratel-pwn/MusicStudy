@@ -1,6 +1,18 @@
 import * as Tone from 'tone';
 import type { Composition } from '../domain/music/types';
 
+export type AudioTestSpy = {
+  unlockCalls: number;
+  playedMidi: number[];
+  playedCompositions: number;
+};
+
+declare global {
+  var __MUSICSTUDY_AUDIO_TEST_SPY__: AudioTestSpy | undefined;
+}
+
+const audioTestSpy = () => import.meta.env.DEV ? globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__ : undefined;
+
 export type AudioStatus = 'locked' | 'unlocking' | 'ready' | 'failed';
 
 export interface MusicAudioEngine {
@@ -27,6 +39,13 @@ export class AudioEngine implements MusicAudioEngine {
   async unlock(): Promise<AudioStatus> {
     this.status = 'unlocking';
 
+    const spy = audioTestSpy();
+    if (spy) {
+      spy.unlockCalls += 1;
+      this.status = 'ready';
+      return this.status;
+    }
+
     try {
       await Tone.start();
       if (!this.initializeResources()) throw new Error('Audio resources unavailable');
@@ -39,10 +58,20 @@ export class AudioEngine implements MusicAudioEngine {
   }
 
   playMidi(midi: number, durationBeats = 1, velocity = 0.8): void {
+    const spy = audioTestSpy();
+    if (spy) {
+      spy.playedMidi.push(midi);
+      return;
+    }
     this.synth?.triggerAttackRelease(midiToNote(midi), durationBeats, Tone.now(), velocity);
   }
 
   previewChord(midis: number[]): void {
+    const spy = audioTestSpy();
+    if (spy) {
+      spy.playedMidi.push(...midis);
+      return;
+    }
     const time = Tone.now();
     midis.forEach((midi) => {
       this.synth?.triggerAttackRelease(midiToNote(midi), 1, time, 0.8);
@@ -50,6 +79,7 @@ export class AudioEngine implements MusicAudioEngine {
   }
 
   startMetronome(bpm: number): void {
+    if (audioTestSpy()) return;
     this.stop();
     Tone.Transport.bpm.value = bpm;
     Tone.Transport.scheduleRepeat((time) => {
@@ -59,6 +89,11 @@ export class AudioEngine implements MusicAudioEngine {
   }
 
   playComposition(composition: Composition): void {
+    const spy = audioTestSpy();
+    if (spy) {
+      spy.playedCompositions += 1;
+      return;
+    }
     this.stop();
     Tone.Transport.bpm.value = composition.bpm;
     const secondsPerBeat = 60 / composition.bpm;
@@ -78,6 +113,7 @@ export class AudioEngine implements MusicAudioEngine {
   }
 
   stop(): void {
+    if (audioTestSpy()) return;
     Tone.Transport.stop();
     Tone.Transport.cancel();
   }
@@ -85,6 +121,7 @@ export class AudioEngine implements MusicAudioEngine {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    if (audioTestSpy()) return;
     if (this.synth || this.metronomeSynth || this.visibilityListenerRegistered) this.stop();
     if (this.visibilityListenerRegistered) {
       document.removeEventListener('visibilitychange', this.handleVisibilityChange);

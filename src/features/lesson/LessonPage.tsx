@@ -55,11 +55,9 @@ function KeyboardStep({ step, setAnswer, playMidi }: StepProps) {
           setAnswer(label);
           return;
         }
-        setPlayed((current) => {
-          const next = [...current, label].slice(-expected.length);
-          setAnswer(next);
-          return next;
-        });
+        const next = [...played, label].slice(-expected.length);
+        setPlayed(next);
+        setAnswer(next);
       }}
       value={selected}
     />

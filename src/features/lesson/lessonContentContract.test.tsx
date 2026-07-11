@@ -51,6 +51,7 @@ it('submits eight taps for the real taps-number lesson', async () => {
 
 it('records all three repeated C4 plays required by the real middle-C lesson', async () => {
   const user = userEvent.setup();
+  const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
   const step = pitchMiddleCLesson.steps.find((item) => item.id === 'middle-c-follow')!;
   render(<RendererHarness step={step} />);
 
@@ -60,6 +61,8 @@ it('records all three repeated C4 plays required by the real middle-C lesson', a
   await user.click(key);
   expect(screen.getByText('["C4","C4","C4"]')).toBeInTheDocument();
   expect(getExpectedAnswer(step)).toEqual(['C4', 'C4', 'C4']);
+  expect(consoleError).not.toHaveBeenCalled();
+  consoleError.mockRestore();
 });
 
 it('renders six cells for the authored eighth-note rhythm', () => {

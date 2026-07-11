@@ -39,13 +39,13 @@ export function PianoKeyboard({ value, midis, midiRange, onChange, onPlay }: Pia
   };
 
   return (
-    <div aria-label="钢琴键盘" className="mx-auto flex max-w-4xl items-start justify-center rounded-[2rem] bg-[#102a43] p-4 shadow-[0_24px_70px_rgba(11,34,54,.2)]" role="group">
+    <div aria-label="钢琴键盘" className="mx-auto flex max-w-4xl items-start justify-start overflow-x-auto rounded-[2rem] bg-[#102a43] p-4 shadow-[0_24px_70px_rgba(11,34,54,.2)]" role="group">
       {keys.map((key, index) => (
         <button
           ref={(node) => { keyRefs.current[index] = node; }}
           aria-label={key.label}
           aria-pressed={value.includes(key.midi)}
-          className={`${key.black ? 'z-10 -mx-3 h-28 w-8 bg-[#0b2236] text-[#fff4d6]' : 'h-44 w-14 bg-[#fffaf0] text-[#102a43]'} rounded-b-xl border border-[#102a43]/30 pb-3 text-xs font-bold transition duration-150 hover:-translate-y-1 aria-pressed:bg-[#e7c55f]`}
+          className={`${key.black ? 'z-10 -mx-3 h-28 w-8 bg-[#0b2236] text-[#fff4d6]' : 'h-44 w-14 bg-[#fffaf0] text-[#102a43]'} shrink-0 rounded-b-xl border border-[#102a43]/30 pb-3 text-xs font-bold transition duration-150 hover:-translate-y-1 aria-pressed:bg-[#e7c55f]`}
           key={key.midi}
           onClick={() => activate(key.midi)}
           onKeyDown={(event) => handleKeyDown(event, index)}
