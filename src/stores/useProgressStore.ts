@@ -9,6 +9,7 @@ import {
 
 export type ProgressState = {
   hydrated: boolean;
+  hydrationError: Error | null;
   progress: ProgressRecord;
   hydrate(): Promise<void>;
   completeLesson(input: CompleteLessonInput): Promise<void>;
@@ -21,15 +22,21 @@ const initialProgress: ProgressRecord = {
   streak: 0,
   stars: {},
   unlockedLessonIds: [],
+  badgeIds: [],
 };
 
 export const useProgressStore = create<ProgressState>((set) => ({
   hydrated: false,
+  hydrationError: null,
   progress: initialProgress,
 
   async hydrate() {
-    const progress = await progressRepository.get();
-    set({ hydrated: true, progress });
+    try {
+      const progress = await progressRepository.get();
+      set({ hydrated: true, hydrationError: null, progress });
+    } catch (reason) {
+      set({ hydrationError: reason instanceof Error ? reason : new Error(String(reason)) });
+    }
   },
 
   async completeLesson(input) {

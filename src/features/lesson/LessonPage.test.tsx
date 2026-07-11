@@ -6,7 +6,7 @@ import { scaleCMajorLesson } from '../../content/lessons/scale-c-major';
 import { createLessonSession } from './lessonEngine';
 import { LessonPage } from './LessonPage';
 
-const audio = vi.hoisted(() => ({ playMidi: vi.fn(), stop: vi.fn() }));
+const audio = vi.hoisted(() => ({ playMidi: vi.fn(), playSequence: vi.fn(), stop: vi.fn() }));
 const progress = vi.hoisted(() => ({ completeLesson: vi.fn(), recordAttempt: vi.fn() }));
 
 const stored = new Map<string, string>();

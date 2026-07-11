@@ -4,15 +4,17 @@ export type CalculateStarsInput = {
   score: number;
   hints: number;
   completedVariant: boolean;
+  completedChallenge?: boolean;
 };
 
 export const calculateStars = ({
   score,
   hints,
   completedVariant,
+  completedChallenge = false,
 }: CalculateStarsInput): 1 | 2 | 3 => {
   const highQualityCompletion = score >= 90 && hints === 0;
-  if (completedVariant && highQualityCompletion) return 3;
+  if (completedChallenge && highQualityCompletion) return 3;
   if (score >= 80 && hints <= 1) return 2;
   return 1;
 };

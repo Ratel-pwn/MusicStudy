@@ -44,7 +44,18 @@ test('完成六项今日练习并更新复习日期', async ({ page }) => {
   expect(baseline).toBe(0);
   await page.goto('/practice');
   await expect(page.getByText('0 / 6 已完成')).toBeVisible();
-  for (let index = 0; index < 6; index += 1) await page.getByRole('button', { name: '独立完成' }).click();
+  for (let index = 0; index < 6; index += 1) {
+    for (const answer of ['C–E–G', 'C4', '逐级白键', '稳定', '更高']) {
+      const option = page.locator('.focus-task [role="group"]').getByRole('button', { name: answer, exact: true });
+      if (await option.count()) {
+        await option.click();
+        break;
+      }
+    }
+    await page.getByRole('button', { name: '提交答案' }).click();
+    await page.getByRole('button', { name: '继续' }).click();
+    await expect(page.getByText(`${index + 1} / 6 已完成`)).toBeVisible();
+  }
   await expect(page.getByRole('heading', { name: '今天的练习航道已走完' })).toBeVisible();
   const persisted = await page.evaluate(async () => {
     const request = indexedDB.open('music-study');

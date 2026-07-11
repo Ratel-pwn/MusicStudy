@@ -11,6 +11,17 @@ const initialComposition: Composition = {
 };
 
 describe('studioStore', () => {
+  it('renames with undo and preserves the last valid title for blank input', () => {
+    const store = createStudioStore(initialComposition);
+    const setTitle = (store.getState() as unknown as { setTitle?: (title: string) => void }).setTitle;
+    expect(typeof setTitle).toBe('function');
+    setTitle?.('  海边练习  ');
+    expect(store.getState().composition.title).toBe('海边练习');
+    setTitle?.('   ');
+    expect(store.getState().composition.title).toBe('海边练习');
+    store.getState().undo();
+    expect(store.getState().composition.title).toBe(initialComposition.title);
+  });
   it('adds, moves, resizes, and removes notes while quantizing edits to quarter beats', () => {
     const store = createStudioStore(initialComposition);
 

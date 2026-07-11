@@ -15,6 +15,9 @@ const tone = vi.hoisted(() => {
   }> = [];
   const transport = {
     bpm: { value: 120 },
+    loop: false,
+    loopStart: 0,
+    loopEnd: 0,
     schedule: vi.fn((callback: (time: number) => void) => {
       callback(42);
       return 1;
@@ -105,7 +108,7 @@ describe('AudioEngine', () => {
   });
 
   it('uses the explicit browser-test spy without creating Tone resources', async () => {
-    globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__ = { unlockCalls: 0, playedMidi: [], playedCompositions: 0 };
+    globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__ = { unlockCalls: 0, playedMidi: [], playedCompositions: 0, stopCalls: 0 };
     const engine = createEngine();
 
     await expect(engine.unlock()).resolves.toBe('ready');
@@ -116,6 +119,7 @@ describe('AudioEngine', () => {
       unlockCalls: 1,
       playedMidi: [60],
       playedCompositions: 1,
+      stopCalls: 0,
     });
     expect(tone.start).not.toHaveBeenCalled();
     expect(tone.Synth).not.toHaveBeenCalled();
@@ -157,6 +161,17 @@ describe('AudioEngine', () => {
     expect(tone.synths[0].triggerAttackRelease).toHaveBeenNthCalledWith(3, 'G4', 1, 12, 0.8);
   });
 
+  it('schedules an audible comparison sequence through the shared transport', async () => {
+    const engine = createEngine();
+    await engine.unlock();
+    const playSequence = (engine as unknown as { playSequence?: (midis: number[], intervalBeats?: number) => void }).playSequence;
+    expect(typeof playSequence).toBe('function');
+    engine.playSequence([60, 64, 67], .5);
+    expect(tone.Transport.schedule).toHaveBeenNthCalledWith(1, expect.any(Function), 0);
+    expect(tone.Transport.schedule).toHaveBeenNthCalledWith(2, expect.any(Function), .25);
+    expect(tone.Transport.schedule).toHaveBeenNthCalledWith(3, expect.any(Function), .5);
+  });
+
   it('starts a metronome on the shared Transport', async () => {
     const engine = createEngine();
     await engine.unlock();
@@ -184,9 +199,35 @@ describe('AudioEngine', () => {
     expect(tone.Transport.bpm.value).toBe(90);
     expect(tone.Transport.schedule).toHaveBeenNthCalledWith(1, expect.any(Function), 0);
     expect(tone.Transport.schedule).toHaveBeenNthCalledWith(2, expect.any(Function), 4 / 3);
-    expect(tone.synths[0].triggerAttackRelease).toHaveBeenNthCalledWith(1, 'midi-48', 2 / 3, 42, 0.7);
-    expect(tone.synths[0].triggerAttackRelease).toHaveBeenNthCalledWith(2, 'C4', 4 / 3, 42, 0.8);
+    expect(tone.synths[3].triggerAttackRelease).toHaveBeenCalledWith('midi-48', 2 / 3, 42, 0.7);
+    expect(tone.synths[4].triggerAttackRelease).toHaveBeenCalledWith('C4', 4 / 3, 42, 0.8);
     expect(tone.Transport.start).toHaveBeenCalledOnce();
+  });
+
+  it('dispatches tracks independently, loops eight bars, starts at the selected beat, and reports stop', async () => {
+    const engine = createEngine();
+    await engine.unlock();
+    const onStop = vi.fn();
+    const richComposition: Composition = {
+      ...composition,
+      tracks: {
+        drums: [{ id: 'd', midi: 36, startBeat: 0, durationBeats: .25, velocity: .8 }],
+        bass: [{ id: 'b', midi: 48, startBeat: 1, durationBeats: 1, velocity: .7 }],
+        chords: [{ id: 'c', midi: 60, startBeat: 2, durationBeats: 2, velocity: .7 }],
+        melody: [{ id: 'm', midi: 67, startBeat: 3, durationBeats: .5, velocity: .9 }],
+      },
+    };
+
+    (engine.playComposition as unknown as (value: Composition, options: { startBeat: number; onStop: () => void }) => void)(richComposition, { startBeat: 8, onStop });
+
+    expect(tone.synths.length).toBeGreaterThanOrEqual(5);
+    expect(tone.Transport.loop).toBe(true);
+    expect(tone.Transport.loopStart).toBe(0);
+    expect(tone.Transport.loopEnd).toBe(32 * 60 / 90);
+    expect(tone.Transport.start).toHaveBeenCalledWith(undefined, 8 * 60 / 90);
+    expect(tone.synths.slice(2).map((synth) => synth.triggerAttackRelease.mock.calls.length)).toEqual([1, 1, 1, 1]);
+    engine.stop();
+    expect(onStop).toHaveBeenCalledOnce();
   });
 
   it('stops, cancels, and disposes all owned audio resources', async () => {
@@ -273,7 +314,7 @@ describe('AudioProvider', () => {
     await user.click(screen.getByRole('button', { name: 'unlock' }));
 
     expect(screen.getByText('ready')).toBeInTheDocument();
-    expect(tone.Synth).toHaveBeenCalledTimes(2);
+    expect(tone.Synth).toHaveBeenCalledTimes(6);
     expect(addEventListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
   });
 

@@ -51,6 +51,8 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
   const selectedTrack = useStore(store, (state) => state.selectedTrack);
   const focusedBeat = useStore(store, (state) => state.focusedBeat);
   const [hydrated, setHydrated] = useState(false);
+  const [readError, setReadError] = useState<Error | null>(null);
+  const [titleDraft, setTitleDraft] = useState(composition.title);
   const [playing, setPlaying] = useState(false);
 
   useLayoutEffect(() => {
@@ -73,19 +75,32 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
     return () => context.revert();
   }, [reducedMotion]);
 
+  const requestedId = compositionId ?? localStorage.getItem(STUDIO_COMPOSITION_KEY);
+  const loadComposition = useCallback(async (id: string) => {
+    setHydrated(false);
+    setReadError(null);
+    try {
+      const restored = await compositionRepository.get(id);
+      store.getState().replaceComposition(restored ?? { ...DEFAULT_COMPOSITION, id });
+      setHydrated(true);
+    } catch (reason) {
+      setReadError(reason instanceof Error ? reason : new Error(String(reason)));
+    }
+  }, [store]);
+
   useEffect(() => {
     let active = true;
-    const id = compositionId ?? localStorage.getItem(STUDIO_COMPOSITION_KEY);
-    if (!id) {
+    if (!requestedId) {
       setHydrated(true);
       return () => { active = false; };
     }
-    void compositionRepository.get(id).then((restored) => {
-      if (!active) return;
-      store.getState().replaceComposition(restored ?? { ...DEFAULT_COMPOSITION, id });
-    }).finally(() => { if (active) setHydrated(true); });
+    void loadComposition(requestedId);
     return () => { active = false; };
-  }, [compositionId, store]);
+  }, [loadComposition, requestedId]);
+
+  useEffect(() => setTitleDraft(composition.title), [composition.title]);
+
+  useEffect(() => () => { engine.stop(); }, [engine]);
 
   const saveComposition = useCallback(async (next: Composition) => {
     const saved = await compositionRepository.save(next);
@@ -93,11 +108,15 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
     return saved;
   }, []);
   const autosave = useAutosaveRecovery({
-    enabled: hydrated,
+    enabled: hydrated && readError === null,
     fileName: `${composition.title || '临时作品'}.json`,
     save: saveComposition,
     value: composition,
   });
+
+  useEffect(() => {
+    if (hydrated && !readError) void autosave.retry();
+  }, [composition.title]);
 
   useEffect(() => {
     localStorage.setItem(STUDIO_TRACK_KEY, selectedTrack);
@@ -106,7 +125,10 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
   const play = async () => {
     await unlock();
     if (engine.status !== 'ready') return;
-    engine.playComposition(store.getState().composition);
+    engine.playComposition(store.getState().composition, {
+      startBeat: store.getState().playheadBeat,
+      onStop: () => setPlaying(false),
+    });
     setPlaying(true);
   };
   const stop = () => {
@@ -119,7 +141,17 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
       <div className="studio-masthead">
         <div>
           <span className="studio-kicker"><Waveform aria-hidden="true" /> 八小节创作台</span>
-          <input aria-label="作品名称" className="composition-title" readOnly value={composition.title} />
+          <input
+            aria-label="作品名称"
+            className="composition-title"
+            onBlur={() => {
+              const valid = titleDraft.trim();
+              if (valid) store.getState().setTitle(valid);
+              setTitleDraft(store.getState().composition.title);
+            }}
+            onChange={(event) => setTitleDraft(event.target.value)}
+            value={titleDraft}
+          />
         </div>
         <p>从节拍开始，让四条轨道在同一条时间线上相遇。</p>
       </div>
@@ -129,6 +161,18 @@ export function StudioPage({ compositionId }: { compositionId?: string } = {}) {
           <span>作品暂未保存，临时版本仍保留在此设备的内存中。</span>
           <button type="button" onClick={autosave.downloadSnapshot}>下载临时作品 JSON</button>
           <button type="button" onClick={() => void autosave.retry()}>重试保存</button>
+        </aside>
+      )}
+
+      {readError && (
+        <aside className="storage-recovery-banner" role="alert">
+          <span>无法读取这份作品，自动保存已暂停，不会覆盖原记录。</span>
+          <button type="button" onClick={() => requestedId && void loadComposition(requestedId)}>重试读取</button>
+          <button type="button" onClick={() => {
+            store.getState().replaceComposition({ ...DEFAULT_COMPOSITION, id: `${requestedId ?? 'studio'}-recovered` });
+            setReadError(null);
+            setHydrated(true);
+          }}>新建草稿</button>
         </aside>
       )}
 

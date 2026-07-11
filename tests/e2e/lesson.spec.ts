@@ -4,9 +4,9 @@ test('完成课程并获得星级', async ({ page }) => {
   await resetApp(page, '/lesson/pitch-high-low');
   await completeHighLowLesson(page);
   await expect(page.getByRole('heading', { name: '课程完成' })).toBeVisible();
-  await expect(page.getByText('100 分 · 2 星')).toBeVisible();
+  await expect(page.getByText('100 分 · 3 星')).toBeVisible();
   await page.getByRole('button', { name: '退出课程' }).click();
-  await expect(page.getByRole('button', { name: /声音的高与低.*2 星/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /声音的高与低.*3 星/ })).toBeVisible();
 });
 
 test('三次错误提示后完成变式题', async ({ page }) => {

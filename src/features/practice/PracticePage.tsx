@@ -1,9 +1,13 @@
 import { Check, Flag, Lightbulb, MusicNotes, Waveform } from '@phosphor-icons/react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { reviewRepository } from '../../data/repositories';
+import { attemptRepository, reviewRepository } from '../../data/repositories';
 import type { ReviewRecord } from '../../data/db';
-import type { SkillId } from '../../content/schema';
+import type { LessonStep, SkillId } from '../../content/schema';
+import { lessons } from '../../content/worlds';
+import { FeedbackSheet } from '../lesson/components/FeedbackSheet';
+import { stepRenderers } from '../lesson/LessonPage';
+import { createLessonSession, getHint, requestHint, submitAnswer, type FeedbackResult } from '../lesson/lessonEngine';
 import type { PracticeItem } from './scheduler';
 import './practice.css';
 
@@ -44,12 +48,36 @@ export type PracticePageProps = {
   now?: () => Date;
 };
 
+function practiceStep(item: PracticeItem): LessonStep {
+  const skillId = item.source === 'composition' ? 'creation' : item.skillId;
+  const authored = lessons.flatMap((lesson) => lesson.steps).find((step) => step.type === 'choice' && step.skillIds.includes(skillId));
+  if (authored) return authored;
+  return {
+    id: `practice-${skillId}`,
+    type: 'choice',
+    prompt: `选择符合${skillNames[skillId]}规则的答案。`,
+    skillIds: [skillId],
+    config: { choices: ['符合规则', '需要调整'], answer: '符合规则' },
+    feedback: { practiceIncorrect: '重新比较两个选项与题目规则。' },
+  };
+}
+
 export function PracticePage({ items, now = () => new Date() }: PracticePageProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [lastReview, setLastReview] = useState<ReviewRecord>();
   const [saving, setSaving] = useState(false);
+  const [answer, setAnswer] = useState<unknown>();
+  const [feedback, setFeedback] = useState<FeedbackResult>();
   const active = items[activeIndex];
+  const step = useMemo(() => active ? practiceStep(active) : undefined, [active]);
+  const [session, setSession] = useState(() => step ? createLessonSession({ id: 'practice', worldId: 'practice', title: 'practice', order: 0, xp: 0, prerequisiteIds: [], steps: [step] }) : undefined);
   const completed = Math.min(activeIndex, items.length);
+
+  useEffect(() => {
+    setAnswer(undefined);
+    setFeedback(undefined);
+    setSession(step ? createLessonSession({ id: `practice:${step.id}`, worldId: 'practice', title: 'practice', order: 0, xp: 0, prerequisiteIds: [], steps: [step] }) : undefined);
+  }, [step]);
 
   const complete = async (correct: boolean, hints: number) => {
     if (!active || saving) return;
@@ -68,6 +96,20 @@ export function PracticePage({ items, now = () => new Date() }: PracticePageProp
     } finally {
       setSaving(false);
     }
+  };
+
+  const submit = async () => {
+    if (!active || !step || !session || answer === undefined || saving) return;
+    const result = submitAnswer(session, answer);
+    setSession(result.session);
+    setFeedback(result.feedback);
+    await attemptRepository.record({
+      lessonId: `practice:${step.id}`,
+      skillIds: step.skillIds,
+      correct: result.feedback.correct,
+      hints: session.hintsUsed,
+      ...(result.feedback.errorCode ? { errorCode: result.feedback.errorCode } : {}),
+    });
   };
 
   return (
@@ -101,14 +143,22 @@ export function PracticePage({ items, now = () => new Date() }: PracticePageProp
           )}
           {active ? (() => {
             const copy = taskCopy(active);
+            const Renderer = step ? stepRenderers[step.type] : undefined;
             return (
               <div className="focus-task">
                 <MusicNotes aria-hidden="true" weight="duotone" />
                 <p>{copy.reason}</p>
                 <h2>{copy.title} · {copy.prompt}</h2>
+                {step && Renderer && session && (
+                  <>
+                    <p>{step.prompt}</p>
+                    <Renderer answer={answer} playMidi={() => undefined} setAnswer={setAnswer} step={step} />
+                    {session.hintLevel > 0 && <p>提示 {session.hintLevel}：{getHint(session)}</p>}
+                  </>
+                )}
                 <div className="practice-actions">
-                  <button disabled={saving} onClick={() => void complete(true, 0)} type="button">独立完成</button>
-                  <button disabled={saving} onClick={() => void complete(true, 1)} type="button"><Lightbulb aria-hidden="true" />借助提示完成</button>
+                  <button disabled={saving || answer === undefined} onClick={() => void submit()} type="button">提交答案</button>
+                  <button disabled={saving || !session} onClick={() => session && setSession(requestHint(session))} type="button"><Lightbulb aria-hidden="true" />提示</button>
                 </div>
               </div>
             );
@@ -121,6 +171,17 @@ export function PracticePage({ items, now = () => new Date() }: PracticePageProp
           )}
         </section>
       </div>
+      <FeedbackSheet
+        correct={feedback?.correct ?? false}
+        level={feedback?.level ?? 0}
+        message={feedback?.message}
+        onContinue={() => {
+          setFeedback(undefined);
+          void complete(true, session?.hintsUsed ?? 0);
+        }}
+        onDismiss={() => { setFeedback(undefined); setAnswer(undefined); }}
+        open={feedback !== undefined}
+      />
     </main>
   );
 }

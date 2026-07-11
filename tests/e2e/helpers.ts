@@ -19,7 +19,7 @@ test.afterEach(async ({ page }) => {
 
 async function installAudioSpy(page: Page) {
   await page.addInitScript(() => {
-    globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__ = { unlockCalls: 0, playedMidi: [], playedCompositions: 0 };
+    globalThis.__MUSICSTUDY_AUDIO_TEST_SPY__ = { unlockCalls: 0, playedMidi: [], playedCompositions: 0, stopCalls: 0 };
   });
 }
 
@@ -50,6 +50,7 @@ export async function completeHighLowLesson(page: Page) {
   await submitCorrect(page);
   for (const note of ['C4', 'C5', 'C3']) await page.getByRole('button', { name: note }).click();
   await submitCorrect(page);
-  await page.getByRole('button', { name: '播放示范' }).click();
+  await page.getByRole('button', { name: '写入作品' }).click();
+  await expect(page.getByRole('button', { name: '提交答案' })).toBeEnabled();
   await submitCorrect(page);
 }

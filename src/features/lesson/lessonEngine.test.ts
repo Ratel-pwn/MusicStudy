@@ -37,6 +37,47 @@ const lesson: Lesson = {
 };
 
 describe('lesson engine', () => {
+  it('grades rhythm taps by authored BPM with a 120ms beginner tolerance', () => {
+    const tapLesson: Lesson = { ...lesson, steps: [{
+      id: 'tap', type: 'rhythmTap', prompt: 'tap', skillIds: ['rhythm'],
+      config: { bpm: 60, taps: 4 }, feedback: { timing: 'keep time' },
+    }] };
+    expect(submitAnswer(createLessonSession(tapLesson), [0, 1000, 2000, 3000]).feedback.correct).toBe(true);
+    expect(submitAnswer(createLessonSession(tapLesson), [0, 700, 2000, 3000]).feedback.correct).toBe(false);
+  });
+
+  it('grades eight-bar phrase taps at bar intervals and requires authored accents', () => {
+    const phraseLesson: Lesson = { ...lesson, steps: [{
+      id: 'phrase', type: 'rhythmTap', prompt: 'phrase', skillIds: ['creation'],
+      config: { bpm: 60, bars: 8, accents: [1, 5] }, feedback: { accent: 'mark phrases' },
+    }] };
+    const timestamps = Array.from({ length: 8 }, (_, index) => index * 4000);
+    expect(submitAnswer(createLessonSession(phraseLesson), { timestamps, accents: [1, 5] }).feedback.correct).toBe(true);
+    expect(submitAnswer(createLessonSession(phraseLesson), { timestamps, accents: [1] }).feedback.correct).toBe(false);
+  });
+
+  it('does not accept generic acknowledgements for listening or studio transfer', () => {
+    const authored: Lesson = { ...lesson, steps: [
+      { id: 'listen', type: 'listen', prompt: 'listen', skillIds: ['pitch'], config: { notes: ['C4', 'G4'] }, feedback: { replay: 'again' } },
+      { id: 'transfer', type: 'studioTransfer', prompt: 'transfer', skillIds: ['creation'], config: { targetTrack: 'melody' }, feedback: { missing: 'apply it' } },
+    ] };
+    expect(submitAnswer(createLessonSession(authored), true).feedback.correct).toBe(false);
+    let session = submitAnswer(createLessonSession(authored), { listened: true, sampleCount: 2 }).session;
+    expect(session.stepIndex).toBe(1);
+    expect(submitAnswer(session, true).feedback.correct).toBe(false);
+    session = submitAnswer(session, { applied: true, compositionId: 'lesson-draft', trackActions: ['melody'] }).session;
+    expect(session.stepIndex).toBe(2);
+    expect((session as unknown as { completedChallenge: boolean }).completedChallenge).toBe(true);
+  });
+
+  it('requires an explicit edited eight-bar structure instead of a generated expected answer', () => {
+    const buildLesson: Lesson = { ...lesson, steps: [{
+      id: 'form', type: 'rhythmBuild', prompt: 'form', skillIds: ['creation'],
+      config: { bars: 8, copyRange: [1, 4], variationBar: 8 }, feedback: { form: 'edit form' },
+    }] };
+    expect(submitAnswer(createLessonSession(buildLesson), Array(8).fill('bar')).feedback.correct).toBe(false);
+    expect(submitAnswer(createLessonSession(buildLesson), { bars: ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'B'] }).feedback.correct).toBe(true);
+  });
   it('starts at the first step with no attempts or hints', () => {
     expect(createLessonSession(lesson)).toMatchObject({
       lessonId: lesson.id,
@@ -117,7 +158,7 @@ describe('lesson engine', () => {
         { id: 'choose', type: 'choice', prompt: 'choose', skillIds: ['pitch'], config: { choices: ['E', 'F', 'G'] }, feedback: {} },
       ],
     };
-    let session = submitAnswer(createLessonSession(contentLesson), ['C4', 'E4', 'G4']).session;
+    let session = submitAnswer(createLessonSession(contentLesson), { listened: true, sampleCount: 3 }).session;
     session = submitAnswer(session, 'E').session;
 
     expect(session.stepIndex).toBe(2);

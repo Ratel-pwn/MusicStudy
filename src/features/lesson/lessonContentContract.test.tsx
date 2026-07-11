@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { vi } from 'vitest';
+import { db } from '../../data/db';
 import type { LessonStep } from '../../content/schema';
 import { lessons } from '../../content/worlds';
 import { rhythmEighthSubdivisionLesson } from '../../content/lessons/rhythm-eighth-subdivision';
@@ -9,26 +10,66 @@ import { pitchHighLowLesson } from '../../content/lessons/pitch-high-low';
 import { pitchMiddleCLesson } from '../../content/lessons/pitch-middle-c';
 import { scaleCMajorLesson } from '../../content/lessons/scale-c-major';
 import { chordCMajorLesson } from '../../content/lessons/chord-c-major';
-import { createLessonSession, getCurrentStep, getExpectedAnswer, submitAnswer } from './lessonEngine';
+import { createLessonSession, getCurrentStep, getExpectedAnswer, submitAnswer, validateStepAnswer } from './lessonEngine';
 import { stepRenderers } from './LessonPage';
 
-const interactiveTypes = new Set(['keyboard', 'choice', 'rhythmTap', 'rhythmBuild', 'scaleBuild', 'chordBuild']);
+async function performAuthoredAction(step: LessonStep) {
+  const user = userEvent.setup();
+  if (step.type === 'listen') await user.click(screen.getByRole('button', { name: '播放示范' }));
+  else if (step.type === 'explain') await user.click(screen.getByRole('button', { name: '我看清了' }));
+  else if (step.type === 'keyboard') {
+    const expected = getExpectedAnswer(step);
+    for (const note of (Array.isArray(expected) ? expected : [expected]) as string[]) await user.click(screen.getByRole('button', { name: note }));
+  } else if (step.type === 'choice') {
+    await user.click(screen.getByRole('button', { name: '试听比较' }));
+    await user.click(screen.getByRole('button', { name: String(getExpectedAnswer(step)) }));
+  }
+  else if (step.type === 'rhythmTap') {
+    const count = (getExpectedAnswer(step) as number[]).length;
+    const accents = Array.isArray(step.config.accents) ? step.config.accents as number[] : [];
+    for (let index = 0; index < count; index += 1) {
+      if (accents.includes(index + 1)) await user.click(screen.getByRole('button', { name: '下一小节重拍' }));
+      await user.click(screen.getByRole('button', { name: /打拍/ }));
+    }
+  } else if (step.type === 'rhythmBuild' && Array.isArray(step.config.units)) {
+    const units = step.config.units as Array<'quarter' | 'eighth'>;
+    for (const [index, unit] of units.entries()) {
+      await user.click(screen.getByRole('button', { name: unit === 'quarter' ? '四分音符' : '八分音符' }));
+      await user.click(screen.getByRole('button', { name: new RegExp(`第 ${index + 1} 拍`) }));
+    }
+  } else if (step.type === 'rhythmBuild') {
+    await user.click(screen.getByRole('button', { name: '第 8 小节，段落 A' }));
+  } else if (step.type === 'scaleBuild' || step.type === 'chordBuild') {
+    for (const note of getExpectedAnswer(step) as string[]) await user.click(screen.getByRole('button', { name: `添加 ${note}` }));
+  } else if (step.type === 'studioTransfer') {
+    await user.click(screen.getByRole('button', { name: '写入作品' }));
+    await waitFor(() => expect(screen.getByTestId('renderer-answer').textContent).not.toBe(''));
+  }
+}
 
-it('has an engine answer that completes every interactive step in all eight lessons', () => {
+it('completes every authored step in all eight lessons through its real renderer action', async () => {
+  await db.delete();
+  await db.open();
   expect(lessons).toHaveLength(8);
-  lessons.forEach((lesson) => {
-    lesson.steps.filter((step) => interactiveTypes.has(step.type)).forEach((step) => {
-      const focusedLesson = { ...lesson, steps: [step] };
-      const result = submitAnswer(createLessonSession(focusedLesson), getExpectedAnswer(step));
-      expect(result.session.stepIndex, `${lesson.id}/${step.id}`).toBe(1);
-    });
-  });
-});
+  for (const lesson of lessons) {
+    for (const step of lesson.steps) {
+      render(<RendererHarness step={step} />);
+      await performAuthoredAction(step);
+      const serialized = screen.getByTestId('renderer-answer').textContent ?? '';
+      expect(serialized, `${lesson.id}/${step.id} produced no UI answer`).not.toBe('');
+      const answer = JSON.parse(serialized);
+      expect(validateStepAnswer(step, answer), `${lesson.id}/${step.id}`).toBe(true);
+      cleanup();
+    }
+  }
+}, 20_000);
 
 function RendererHarness({ step }: { step: LessonStep }) {
   const [answer, setAnswer] = useState<unknown>();
+  const interval = 60_000 / (typeof step.config.bpm === 'number' ? step.config.bpm : 90) / (typeof step.config.subdivision === 'number' ? step.config.subdivision : 1) * (Array.isArray(step.config.accents) ? 4 : 1);
+  const time = useRef(-interval);
   const Renderer = stepRenderers[step.type];
-  return <><Renderer answer={answer} playMidi={vi.fn()} setAnswer={setAnswer} step={step} /><output>{JSON.stringify(answer)}</output></>;
+  return <><Renderer answer={answer} now={() => { time.current += interval; return time.current; }} playMidi={vi.fn()} playSequence={vi.fn()} setAnswer={setAnswer} step={step} /><output data-testid="renderer-answer">{JSON.stringify(answer)}</output></>;
 }
 
 it('derives a C3 through C5 keyboard from the real first lesson step', () => {

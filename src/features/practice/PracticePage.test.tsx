@@ -39,7 +39,10 @@ describe('PracticePage', () => {
     expect(screen.getByRole('heading', { name: /音高/ })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /节奏/ })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '独立完成' }));
+    expect(screen.queryByRole('button', { name: '独立完成' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /更高/ }));
+    await user.click(screen.getByRole('button', { name: '提交答案' }));
+    await user.click(screen.getByRole('button', { name: '继续' }));
 
     expect(await screen.findByRole('heading', { name: /节奏/ })).toBeInTheDocument();
     expect(screen.getByText(/7月14日/)).toBeInTheDocument();
@@ -49,7 +52,9 @@ describe('PracticePage', () => {
     const user = userEvent.setup();
     render(<PracticePage items={[items[0]]} now={() => new Date('2026-07-11T08:00:00.000Z')} />);
 
-    await user.click(screen.getByRole('button', { name: '独立完成' }));
+    await user.click(screen.getByRole('button', { name: /更高/ }));
+    await user.click(screen.getByRole('button', { name: '提交答案' }));
+    await user.click(screen.getByRole('button', { name: '继续' }));
 
     await waitFor(async () => {
       await expect(db.reviews.get('pitch')).resolves.toMatchObject({
@@ -65,7 +70,9 @@ describe('PracticePage', () => {
     const user = userEvent.setup();
     render(<PracticePage items={[items[0]]} now={() => new Date('2026-07-10T16:30:00.000Z')} />);
 
-    await user.click(screen.getByRole('button', { name: '独立完成' }));
+    await user.click(screen.getByRole('button', { name: /更高/ }));
+    await user.click(screen.getByRole('button', { name: '提交答案' }));
+    await user.click(screen.getByRole('button', { name: '继续' }));
 
     expect(await screen.findByText(/下次复习：7月14日/)).toBeInTheDocument();
   });

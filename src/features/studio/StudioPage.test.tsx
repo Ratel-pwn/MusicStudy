@@ -208,10 +208,44 @@ describe('StudioPage', () => {
 
     await user.click(screen.getByRole('button', { name: '播放作品' }));
     expect(audio.unlock).toHaveBeenCalledOnce();
-    expect(audio.engine.playComposition).toHaveBeenCalledWith(expect.objectContaining({ bars: 8 }));
+    expect(audio.engine.playComposition).toHaveBeenCalledWith(
+      expect.objectContaining({ bars: 8 }),
+      expect.objectContaining({ startBeat: 0, onStop: expect.any(Function) }),
+    );
 
     await user.click(screen.getByRole('button', { name: '停止播放' }));
     expect(audio.engine.stop).toHaveBeenCalledOnce();
+  });
+
+  it('stops playback when the Studio route unmounts', async () => {
+    const user = userEvent.setup();
+    const view = render(<StudioPage />);
+    await user.click(screen.getByRole('button', { name: '播放作品' }));
+    audio.engine.stop.mockClear();
+    view.unmount();
+    expect(audio.engine.stop).toHaveBeenCalledOnce();
+  });
+
+  it('renames the composition and preserves the last valid title', async () => {
+    const user = userEvent.setup();
+    render(<StudioPage />);
+    const title = screen.getByRole('textbox', { name: '作品名称' });
+    await user.clear(title);
+    await user.type(title, '海边练习');
+    fireEvent.blur(title);
+    expect(title).toHaveValue('海边练习');
+    await user.clear(title);
+    fireEvent.blur(title);
+    expect(title).toHaveValue('海边练习');
+  });
+
+  it('shows retry and new-draft recovery without autosaving when composition read fails', async () => {
+    repository.get.mockRejectedValueOnce(new Error('IndexedDB read failed'));
+    render(<StudioPage compositionId="broken-song" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('无法读取');
+    expect(screen.getByRole('button', { name: '重试读取' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建草稿' })).toBeInTheDocument();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('keeps editing available and does not start playback when audio recovery fails', async () => {

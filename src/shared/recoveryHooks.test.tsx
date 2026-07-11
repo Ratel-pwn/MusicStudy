@@ -32,6 +32,40 @@ it('keeps a serialized composition snapshot when autosave fails', async () => {
   expect(result.current.error?.message).toBe('IndexedDB unavailable');
 });
 
+it('flushes the latest edit when leaving before debounce expires', async () => {
+  const save = vi.fn().mockResolvedValue(undefined);
+  const { rerender, unmount } = renderHook(({ value }) => useAutosaveRecovery({
+    delayMs: 500,
+    fileName: 'draft.json',
+    save,
+    value,
+  }), { initialProps: { value: { title: 'first' } } });
+
+  rerender({ value: { title: 'latest' } });
+  unmount();
+  await Promise.resolve();
+
+  expect(save).toHaveBeenLastCalledWith({ title: 'latest' });
+});
+
+it('serializes retries so an older in-flight write cannot finish after a newer edit', async () => {
+  let releaseFirst!: () => void;
+  const first = new Promise<void>((resolve) => { releaseFirst = resolve; });
+  const save = vi.fn().mockImplementationOnce(() => first).mockResolvedValue(undefined);
+  const { result, rerender } = renderHook(({ value }) => useAutosaveRecovery({ value, save, fileName: 'draft.json' }), {
+    initialProps: { value: { title: 'first' } },
+  });
+
+  void result.current.retry();
+  rerender({ value: { title: 'latest' } });
+  const second = result.current.retry();
+  await Promise.resolve();
+  expect(save).toHaveBeenCalledTimes(1);
+  releaseFirst();
+  await second;
+  expect(save.mock.calls).toEqual([[{ title: 'first' }], [{ title: 'latest' }]]);
+});
+
 it('tracks changes to the reduced-motion media query', () => {
   let listener: ((event: MediaQueryListEvent) => void) | undefined;
   const media = {

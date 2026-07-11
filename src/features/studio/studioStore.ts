@@ -23,6 +23,7 @@ export type StudioState = {
   removeNote(track: TrackKind, id: string): void;
   setBpm(bpm: StudioBpm): void;
   setKey(key: CompositionKey): void;
+  setTitle(title: string): void;
   replaceChordAtBeat(startBeat: number, midis: number[]): void;
   replaceComposition(composition: Composition): void;
   selectNote(track: TrackKind, id: string | null): void;
@@ -110,6 +111,12 @@ export function createStudioStore(initialComposition: Composition): StoreApi<Stu
 
       setKey(key) {
         commit((draft) => { draft.key = key; });
+      },
+
+      setTitle(title) {
+        const nextTitle = title.trim();
+        if (!nextTitle || nextTitle === get().composition.title) return;
+        commit((draft) => { draft.title = nextTitle; });
       },
 
       replaceChordAtBeat(startBeat, midis) {

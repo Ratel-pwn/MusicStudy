@@ -20,6 +20,7 @@ export type LessonSession = {
   hintLevel: 0 | 1 | 2 | 3;
   requiresVariant: boolean;
   completedVariant: boolean;
+  completedChallenge: boolean;
   hintsUsed: number;
   answers: Array<{ stepId: string; correct: boolean; errorCode?: string }>;
   steps: LessonStep[];
@@ -45,6 +46,7 @@ export function createLessonSession(lesson: Lesson): LessonSession {
     hintLevel: 0,
     requiresVariant: false,
     completedVariant: false,
+    completedChallenge: false,
     hintsUsed: 0,
     answers: [],
     steps: lesson.steps,
@@ -141,6 +143,57 @@ function answersMatch(actual: unknown, expected: unknown): boolean {
   return JSON.stringify(actual) === JSON.stringify(expected);
 }
 
+type ListeningAnswer = { listened: true; sampleCount: number };
+type StudioTransferAnswer = { applied: true; compositionId: string; trackActions: string[] };
+
+function validateRhythmTaps(step: LessonStep, answer: unknown): boolean {
+  const hasAccents = Array.isArray(step.config.accents);
+  const timestamps = hasAccents && answer && typeof answer === 'object'
+    ? (answer as { timestamps?: unknown }).timestamps
+    : answer;
+  if (!Array.isArray(timestamps) || !timestamps.every((value) => typeof value === 'number')) return false;
+  const count = tapCount(step);
+  if (timestamps.length !== count || count < 1) return false;
+  const bpm = typeof step.config.bpm === 'number' ? step.config.bpm : 90;
+  const subdivision = typeof step.config.subdivision === 'number' ? step.config.subdivision : 1;
+  const targetInterval = 60_000 / bpm / subdivision * (hasAccents ? 4 : 1);
+  const timingCorrect = timestamps.slice(1).every((time, index) => Math.abs((time as number) - (timestamps[index] as number) - targetInterval) <= 120);
+  if (!timingCorrect || !hasAccents) return timingCorrect;
+  return answersMatch((answer as { accents?: unknown }).accents, step.config.accents);
+}
+
+function validateEightBarStructure(answer: unknown): boolean {
+  if (!answer || typeof answer !== 'object') return false;
+  const bars = (answer as { bars?: unknown }).bars;
+  return Array.isArray(bars)
+    && bars.length === 8
+    && bars.every((bar) => typeof bar === 'string' && bar.length > 0)
+    && bars[7] !== bars[3];
+}
+
+function validateStudioTransfer(step: LessonStep, answer: unknown): boolean {
+  if (!answer || typeof answer !== 'object') return false;
+  const transfer = answer as Partial<StudioTransferAnswer>;
+  if (transfer.applied !== true || typeof transfer.compositionId !== 'string' || !Array.isArray(transfer.trackActions)) return false;
+  const requiredTracks = Array.isArray(step.config.requiredTracks)
+    ? step.config.requiredTracks.filter((track): track is string => typeof track === 'string')
+    : typeof step.config.targetTrack === 'string' ? [step.config.targetTrack] : [];
+  return requiredTracks.every((track) => transfer.trackActions?.includes(track));
+}
+
+export function validateStepAnswer(step: LessonStep, answer: unknown): boolean {
+  if (step.type === 'listen') {
+    const listening = answer as Partial<ListeningAnswer> | null;
+    return listening?.listened === true && typeof listening.sampleCount === 'number' && listening.sampleCount > 0;
+  }
+  if (step.type === 'rhythmTap') return validateRhythmTaps(step, answer);
+  if (step.type === 'rhythmBuild' && typeof step.config.bars === 'number' && !Array.isArray(step.config.units)) {
+    return validateEightBarStructure(answer);
+  }
+  if (step.type === 'studioTransfer') return validateStudioTransfer(step, answer);
+  return answersMatch(answer, getExpectedAnswer(step));
+}
+
 function wrongAnswersForCurrentStep(session: LessonSession, stepId: string): number {
   let count = 0;
   for (let index = session.answers.length - 1; index >= 0; index -= 1) {
@@ -159,7 +212,7 @@ export function submitAnswer(
     return { session, feedback: { correct: true, level: 0 } };
   }
   const step = getCurrentStep(session);
-  const correct = answersMatch(answer, getExpectedAnswer(step));
+  const correct = validateStepAnswer(step, answer);
   const errorCode = correct ? undefined : Object.keys(step.feedback)[0];
   const answerRecord = { stepId: step.id, correct, ...(errorCode ? { errorCode } : {}) };
 
@@ -173,6 +226,7 @@ export function submitAnswer(
         attempts: session.attempts + 1,
         hintLevel: 0,
         completedVariant: session.completedVariant || completedVariant,
+        completedChallenge: session.completedChallenge || step.type === 'studioTransfer',
         requiresVariant: false,
         variantStep: undefined,
         answers: [...session.answers, answerRecord],
@@ -228,6 +282,7 @@ export function scoreLesson(session: LessonSession): { score: number; stars: 1 |
     score,
     hints: session.hintsUsed,
     completedVariant: session.completedVariant,
+    completedChallenge: session.completedChallenge,
   });
   return { score, stars };
 }

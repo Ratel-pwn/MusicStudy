@@ -1,6 +1,8 @@
 import type { Composition } from '../domain/music/types';
 import type { SkillId } from '../content/schema';
 import { calculateStars } from '../features/map/progression';
+import { unlockedLessonIds } from '../features/map/progression';
+import { worlds } from '../content/worlds';
 import {
   db,
   type AttemptRecord,
@@ -16,6 +18,9 @@ export type CompleteLessonInput = {
   score: number;
   hints: number;
   completedVariant: boolean;
+  completedChallenge?: boolean;
+  xp?: number;
+  completedAt?: Date;
 };
 export type NewAttempt = Omit<AttemptRecord, 'id' | 'createdAt'>;
 
@@ -25,7 +30,22 @@ const defaultProgress = (): ProgressRecord => ({
   streak: 0,
   stars: {},
   unlockedLessonIds: [],
+  badgeIds: [],
 });
+
+const localDateKey = (date: Date): string => [
+  date.getFullYear(),
+  String(date.getMonth() + 1).padStart(2, '0'),
+  String(date.getDate()).padStart(2, '0'),
+].join('-');
+
+function nextStreak(current: ProgressRecord, completedAt: Date): number {
+  const today = localDateKey(completedAt);
+  if (current.lastStudyDate === today) return current.streak;
+  const yesterday = new Date(completedAt);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return current.lastStudyDate === localDateKey(yesterday) ? current.streak + 1 : 1;
+}
 
 export const progressRepository = {
   async get(): Promise<ProgressRecord> {
@@ -41,7 +61,17 @@ export const progressRepository = {
       ) as StarRating;
       const next: ProgressRecord = {
         ...current,
+        xp: current.xp + ((current.stars[input.lessonId] ?? 0) === 0 ? (input.xp ?? 0) : 0),
+        streak: nextStreak(current, input.completedAt ?? new Date()),
+        lastStudyDate: localDateKey(input.completedAt ?? new Date()),
         stars: { ...current.stars, [input.lessonId]: nextStars },
+        unlockedLessonIds: unlockedLessonIds(worlds, { ...current.stars, [input.lessonId]: nextStars }),
+        badgeIds: [...new Set([
+          ...(current.badgeIds ?? []),
+          'first-lesson',
+          ...(nextStars === 3 ? ['migration-master'] : []),
+          ...(input.lessonId === 'creation-eight-bars' ? ['eight-bar-arranger'] : []),
+        ])],
       };
       await db.progress.put(next);
       return next;

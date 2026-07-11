@@ -2,6 +2,11 @@ import { db } from '../data/db';
 import { useProgressStore } from './useProgressStore';
 
 describe('useProgressStore', () => {
+  it('surfaces hydration rejection instead of remaining in loading state', async () => {
+    vi.spyOn(db.progress, 'get').mockRejectedValueOnce(new Error('read failed'));
+    await useProgressStore.getState().hydrate();
+    expect((useProgressStore.getState() as unknown as { hydrationError?: Error }).hydrationError?.message).toBe('read failed');
+  });
   beforeEach(async () => {
     await db.delete();
     await db.open();

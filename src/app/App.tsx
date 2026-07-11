@@ -5,23 +5,28 @@ import { ErrorBoundary } from '../shared/ErrorBoundary';
 import { LoadingState } from '../shared/LoadingState';
 import { AppRoutes } from './routes';
 
-export function App() {
+function AppContent() {
   const hydrated = useProgressStore((state) => state.hydrated);
+  const hydrationError = useProgressStore((state) => state.hydrationError);
   const hydrate = useProgressStore((state) => state.hydrate);
 
   useEffect(() => {
-    if (!hydrated) void hydrate();
-  }, [hydrate, hydrated]);
+    if (!hydrated && !hydrationError) void hydrate();
+  }, [hydrate, hydrated, hydrationError]);
+
+  if (hydrationError) throw hydrationError;
 
   if (!hydrated) {
     return <LoadingState label="正在载入拾音岛" />;
   }
 
   return (
-    <ErrorBoundary>
-      <AudioProvider>
-        <AppRoutes />
-      </AudioProvider>
-    </ErrorBoundary>
+    <AudioProvider>
+      <AppRoutes />
+    </AudioProvider>
   );
+}
+
+export function App() {
+  return <ErrorBoundary><AppContent /></ErrorBoundary>;
 }

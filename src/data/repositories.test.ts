@@ -33,7 +33,22 @@ describe('local repositories', () => {
       streak: 0,
       stars: {},
       unlockedLessonIds: [],
+      badgeIds: [],
     });
+  });
+
+  it('commits stars, lesson XP, streak, unlocks, and a milestone badge together', async () => {
+    await progressRepository.completeLesson({
+      lessonId: 'pitch-high-low', score: 100, hints: 0, completedVariant: false,
+      completedChallenge: true, xp: 50, completedAt: new Date('2026-07-11T10:00:00.000Z'),
+    } as never);
+    const progress = await progressRepository.get();
+    expect(progress.stars['pitch-high-low']).toBe(3);
+    expect(progress.xp).toBe(50);
+    expect(progress.streak).toBe(1);
+    expect(progress.lastStudyDate).toBe('2026-07-11');
+    expect(progress.unlockedLessonIds).toContain('pitch-middle-c');
+    expect((progress as unknown as { badgeIds: string[] }).badgeIds).toContain('first-lesson');
   });
 
   it('completes a lesson and keeps the best star result', async () => {
@@ -49,7 +64,8 @@ describe('local repositories', () => {
       lessonId: 'pitch-01',
       score: 90,
       hints: 0,
-      completedVariant: true,
+      completedVariant: false,
+      completedChallenge: true,
     });
     await progressRepository.completeLesson({
       lessonId: 'pitch-01',

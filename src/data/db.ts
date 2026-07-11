@@ -12,6 +12,7 @@ export type ProgressRecord = {
   lastStudyDate?: string;
   stars: Record<string, StarRating>;
   unlockedLessonIds: string[];
+  badgeIds?: string[];
 };
 
 export type AttemptRecord = {
