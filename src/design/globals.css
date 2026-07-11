@@ -160,23 +160,33 @@ a {
   gap: 0.4rem;
   padding: 0.6rem 0.75rem;
   color: rgba(255, 250, 240, 0.72);
+  border: 1px solid transparent;
   border-radius: 0.8rem;
   text-decoration: none;
-  transition: color var(--beat-fast), background var(--beat-fast), transform var(--beat-fast);
+  transition: color var(--beat-fast), background var(--beat-fast), border-color var(--beat-fast), transform var(--beat-fast);
 }
 
-.shell-destinations a:hover,
-.shell-destinations a.is-active {
+@media (hover: hover) and (pointer: fine) {
+  .shell-destinations a:hover:not(.is-active) {
+    color: var(--paper);
+    border-color: rgba(255, 250, 240, 0.2);
+    background: rgba(255, 250, 240, 0.08);
+    transform: translateY(-1px);
+  }
+}
+
+.shell-destinations a.is-active,
+.shell-destinations a.is-active:hover {
   color: var(--sea-950);
   background: var(--sun-400);
   transform: translateY(-1px);
 }
 
-.shell-mode-note {
-  max-width: 8rem;
-  color: rgba(255, 250, 240, 0.55);
-  font-size: 0.72rem;
-  line-height: 1.25;
+.shell-destinations a:focus-visible,
+.shell-mark:focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px rgba(231, 197, 95, 0.38);
 }
 
 .app-shell > main {
@@ -187,6 +197,13 @@ a {
   top: 1.25rem;
   width: min(calc(100% - 2.5rem), 82rem);
   border-radius: 0.2rem 1.5rem 0.2rem 1.5rem;
+}
+
+.app-shell[data-shell-mode='海图边缘'] > main {
+  --map-shell-safe-top: calc(var(--shell-height) + 2.5rem);
+  height: 100dvh;
+  min-height: 42rem;
+  padding-top: var(--map-shell-safe-top);
 }
 
 .app-shell[data-shell-mode='课程进度'] .shell-navigation {
@@ -471,13 +488,11 @@ a {
 
 @media (max-width: 1024px) {
   .sound-gate { grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.75fr); }
-  .shell-mode-note { display: none; }
 }
 
 @media (max-width: 768px) {
   .shell-navigation { top: auto; bottom: max(0.65rem, env(safe-area-inset-bottom)); width: calc(100% - 1rem); padding: 0.35rem; border-radius: 1rem; }
-  .shell-mark,
-  .shell-mode-note { display: none; }
+  .shell-mark { display: none; }
   .shell-destinations { width: 100%; justify-content: space-around; }
   .shell-destinations a { min-width: 2.9rem; flex-direction: column; gap: 0.1rem; padding: 0.35rem; font-size: 0.68rem; }
   .app-shell > main,

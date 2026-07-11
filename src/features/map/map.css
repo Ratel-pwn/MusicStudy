@@ -25,7 +25,7 @@
 
 .map-heading {
   position: absolute;
-  top: clamp(1rem, 4vw, 3rem);
+  top: calc(var(--map-shell-safe-top) + clamp(1rem, 2vw, 2rem));
   left: clamp(1rem, 5vw, 5rem);
   z-index: 20;
   max-width: 38rem;
@@ -57,7 +57,7 @@
 
 .map-legend {
   position: absolute;
-  top: clamp(1rem, 4vw, 3rem);
+  top: calc(var(--map-shell-safe-top) + clamp(1rem, 2vw, 2rem));
   right: clamp(1rem, 4vw, 3.5rem);
   z-index: 20;
   display: flex;
@@ -84,8 +84,8 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  height: 100vh;
-  min-height: 42rem;
+  height: calc(100dvh - var(--map-shell-safe-top));
+  min-height: calc(42rem - var(--map-shell-safe-top));
   overflow: hidden;
   cursor: grab;
   touch-action: none;
