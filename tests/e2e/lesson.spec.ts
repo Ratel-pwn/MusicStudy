@@ -27,3 +27,19 @@ test('三次错误提示后完成变式题', async ({ page }) => {
   await page.getByRole('button', { name: '提交答案' }).click();
   await expect(page.getByRole('dialog', { name: '回答正确' })).toBeVisible();
 });
+
+test('八小节观察图在手机与宽屏上保持正确分组', async ({ page }) => {
+  await resetApp(page, '/lesson/creation-eight-bars');
+  await page.getByRole('button', { name: '播放示范' }).click();
+  await continueGuidedStep(page);
+
+  await expect(page.getByRole('img', { name: '前四小节建立后四小节回应的八小节结构' })).toBeVisible();
+  const groups = page.getByTestId('eight-bar-section');
+  await expect(groups).toHaveCount(2);
+  const first = await groups.nth(0).boundingBox();
+  const second = await groups.nth(1).boundingBox();
+  expect(first).not.toBeNull();
+  expect(second).not.toBeNull();
+  if ((page.viewportSize()?.width ?? 0) < 640) expect(second!.y).toBeGreaterThan(first!.y);
+  else expect(second!.x).toBeGreaterThan(first!.x);
+});

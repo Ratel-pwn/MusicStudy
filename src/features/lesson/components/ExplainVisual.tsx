@@ -50,6 +50,7 @@ function PitchTrailVisual() {
 }
 
 const whiteKeys = ['B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
+const blackKeyOffsets = ['21%', '33.5%', '58.5%', '71%', '83.5%'];
 
 function MiddleCVisual() {
   return (
@@ -64,9 +65,9 @@ function MiddleCVisual() {
               {note}
             </div>
           ))}
-          <div className="absolute left-[21%] top-1 h-24 w-[8%] rounded-b-lg bg-[#102a43]" />
-          <div className="absolute left-[33.5%] top-1 h-24 w-[8%] rounded-b-lg bg-[#102a43]" />
-          <div className="absolute left-[58.5%] top-1 h-24 w-[8%] rounded-b-lg bg-[#102a43]" />
+          {blackKeyOffsets.map((left) => (
+            <div className="absolute top-1 h-24 w-[8%] rounded-b-lg bg-[#102a43]" data-testid="middle-c-black-key" key={left} style={{ left }} />
+          ))}
         </div>
         <strong className="mt-4 rounded-full bg-[#e7c55f] px-5 py-2 text-sm">中央 C = C4</strong>
       </div>
@@ -130,20 +131,23 @@ function EighthSubdivisionVisual({ syllables }: { syllables: string[] }) {
   );
 }
 
-function ScaleSemitoneVisual() {
+function ScaleSemitoneVisual({ pairs }: { pairs: string[][] }) {
   const notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'];
+  const highlightedNotes = new Set(pairs.flat());
   return (
     <VisualFrame footer="白键相邻并不总是全音，E–F 与 B–C 只有半音" label="C 大调与两组半音位置">
       <div className="flex min-h-52 flex-col justify-center">
         <div className="grid grid-flow-dense grid-cols-8 overflow-hidden rounded-2xl border-2 border-[#102a43]">
           {notes.map((note, index) => (
-            <div className={`${index === 2 || index === 3 || index === 6 || index === 7 ? 'bg-[#e7c55f]' : 'bg-[#fffaf0]'} relative grid min-h-32 place-items-center border-r border-[#102a43]/30 last:border-r-0`} key={`${note}-${index}`}>
+            <div className={`${highlightedNotes.has(note) ? 'bg-[#e7c55f]' : 'bg-[#fffaf0]'} relative grid min-h-32 place-items-center border-r border-[#102a43]/30 last:border-r-0`} key={`${note}-${index}`}>
               <strong className="font-serif text-3xl">{note}</strong>
-              {(index === 2 || index === 6) && <span className="absolute right-1 top-2 z-10 rounded-full bg-[#ef765d] px-2 py-1 text-[10px] font-bold text-white">半音</span>}
+              {pairs.some((pair) => pair[0] === note) && <span className="absolute right-1 top-2 z-10 rounded-full bg-[#ef765d] px-2 py-1 text-[10px] font-bold text-white">半音</span>}
             </div>
           ))}
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-4 text-center text-sm font-bold"><span>E 与 F 紧邻</span><span>B 与 C 紧邻</span></div>
+        <div className="mt-5 grid grid-cols-2 gap-4 text-center text-sm font-bold">
+          {pairs.map((pair) => <span key={pair.join('-')}>{pair.join(' 与 ')} 紧邻</span>)}
+        </div>
       </div>
     </VisualFrame>
   );
@@ -170,19 +174,26 @@ function ChordDegreesVisual({ degrees }: { degrees: number[] }) {
   );
 }
 
-function EightBarVisual() {
+type SectionRange = { start: number; end: number };
+
+function EightBarVisual({ sections }: { sections: SectionRange[] }) {
+  const lastBar = Math.max(...sections.map((section) => section.end));
   return (
     <VisualFrame footer="前四小节提出材料，后四小节沿用材料并改变结尾" label="前四小节建立后四小节回应的八小节结构">
-      <div className="flex min-h-52 flex-col justify-center">
-        <div className="mb-3 grid grid-cols-2 text-center text-sm font-bold"><span>建立动机</span><span>重复并收束</span></div>
-        <div className="grid grid-flow-dense grid-cols-4 gap-2 sm:grid-cols-8">
-          {Array.from({ length: 8 }, (_, index) => (
-            <div className={`${index < 4 ? 'bg-[#4eaa94]' : index === 7 ? 'bg-[#ef765d]' : 'bg-[#e7c55f]'} grid min-h-24 place-items-center rounded-xl border-2 border-[#102a43] text-center font-bold`} key={index}>
-              <span><strong className="block font-serif text-2xl">{index + 1}</strong>{index === 7 ? '变化' : index < 4 ? 'A' : 'A′'}</span>
+      <div className="grid min-h-52 grid-flow-dense content-center gap-5 sm:grid-cols-2">
+        {sections.map((section, sectionIndex) => (
+          <div data-testid="eight-bar-section" key={`${section.start}-${section.end}`}>
+            <strong className="mb-3 block text-center text-sm">{sectionIndex === 0 ? '建立动机' : '重复并收束'}</strong>
+            <div className="grid grid-flow-dense grid-cols-4 gap-2">
+              {Array.from({ length: section.end - section.start + 1 }, (_, index) => section.start + index).map((bar) => (
+                <div className={`${sectionIndex === 0 ? 'bg-[#4eaa94]' : bar === lastBar ? 'bg-[#ef765d]' : 'bg-[#e7c55f]'} grid min-h-24 place-items-center rounded-xl border-2 border-[#102a43] text-center font-bold`} key={bar}>
+                  <span><strong className="block font-serif text-2xl">{bar}</strong>{bar === lastBar ? '变化' : sectionIndex === 0 ? 'A' : 'A′'}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2"><span className="h-1 rounded-full bg-[#4eaa94]" /><span className="h-1 rounded-full bg-[linear-gradient(90deg,#e7c55f_75%,#ef765d_75%)]" /></div>
+            <span className={`${sectionIndex === 0 ? 'bg-[#4eaa94]' : 'bg-[linear-gradient(90deg,#e7c55f_75%,#ef765d_75%)]'} mt-4 block h-1 rounded-full`} />
+          </div>
+        ))}
       </div>
     </VisualFrame>
   );
@@ -204,11 +215,22 @@ function GenericConceptVisual() {
 export function ExplainVisual({ step }: { step: LessonStep }) {
   if (step.config.visual === 'verticalPitchTrail') return <PitchTrailVisual />;
   if (step.config.landmark === 'twoBlackKeysLeft') return <MiddleCVisual />;
-  if (Array.isArray(step.config.labels)) return <WhiteNotesVisual labels={step.config.labels.filter((item): item is string => typeof item === 'string')} />;
+  const labels = Array.isArray(step.config.labels) ? step.config.labels.filter((item): item is string => typeof item === 'string') : [];
+  if (labels.length > 0) return <WhiteNotesVisual labels={labels} />;
   if (step.config.meter === '4/4' && step.config.beatUnit === 'quarter') return <QuarterPulseVisual />;
-  if (Array.isArray(step.config.countSyllables)) return <EighthSubdivisionVisual syllables={step.config.countSyllables.filter((item): item is string => typeof item === 'string')} />;
-  if (Array.isArray(step.config.semitonePairs)) return <ScaleSemitoneVisual />;
-  if (Array.isArray(step.config.degrees)) return <ChordDegreesVisual degrees={step.config.degrees.filter((item): item is number => typeof item === 'number')} />;
-  if (Array.isArray(step.config.sections)) return <EightBarVisual />;
+  const syllables = Array.isArray(step.config.countSyllables) ? step.config.countSyllables.filter((item): item is string => typeof item === 'string') : [];
+  if (syllables.length > 0) return <EighthSubdivisionVisual syllables={syllables} />;
+  const semitonePairs = Array.isArray(step.config.semitonePairs)
+    ? step.config.semitonePairs.filter((pair): pair is string[] => Array.isArray(pair) && pair.length === 2 && pair.every((note) => typeof note === 'string'))
+    : [];
+  if (semitonePairs.length > 0) return <ScaleSemitoneVisual pairs={semitonePairs} />;
+  const degrees = Array.isArray(step.config.degrees) ? step.config.degrees.filter((item): item is number => typeof item === 'number') : [];
+  if (degrees.length > 0) return <ChordDegreesVisual degrees={degrees} />;
+  const sections = Array.isArray(step.config.sections)
+    ? step.config.sections.filter((section): section is SectionRange => Boolean(section) && typeof section === 'object'
+      && typeof (section as SectionRange).start === 'number' && typeof (section as SectionRange).end === 'number'
+      && (section as SectionRange).end >= (section as SectionRange).start)
+    : [];
+  if (sections.length > 1) return <EightBarVisual sections={sections} />;
   return <GenericConceptVisual />;
 }
