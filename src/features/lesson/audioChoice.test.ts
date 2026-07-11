@@ -7,10 +7,25 @@ const authoredAudioChoices = lessons
   .filter((step) => step.type === 'choice' && step.config.audioOptions !== undefined);
 
 describe('audio choice candidates', () => {
-  it('keeps candidate order stable for the same step', () => {
-    const step = authoredAudioChoices[0];
+  it('keeps a fixed candidate order for a known step', () => {
+    const step: LessonStep = {
+      id: 'fixed-audio',
+      type: 'choice',
+      prompt: 'Compare candidates.',
+      skillIds: ['pitch'],
+      config: {
+        choices: ['升高', '降低', '不变'],
+        answer: '升高',
+        audioOptions: { 升高: ['C4', 'G4'], 降低: ['C4', 'F3'], 不变: ['C4', 'C4'] },
+      },
+      feedback: {},
+    };
 
-    expect(getAudioChoiceCandidates(step)).toEqual(getAudioChoiceCandidates(step));
+    expect(getAudioChoiceCandidates(step)).toEqual([
+      { label: 'A', choice: '不变' },
+      { label: 'B', choice: '升高' },
+      { label: 'C', choice: '降低' },
+    ]);
   });
 
   it('varies the visible position of correct answers across authored questions', () => {
@@ -30,8 +45,8 @@ describe('audio choice candidates', () => {
 
       expect(candidates.map(({ label }) => label)).toEqual(['A', 'B', 'C'].slice(0, choices.length));
       for (const candidate of candidates) {
-        expect(choices).not.toContain(candidate.label);
-        expect(candidate.label).not.toContain(String(step.config.answer));
+        expect(candidate.label).not.toContain(String(candidate.choice));
+        expect(String(candidate.choice)).not.toContain(candidate.label);
       }
       expect(candidates.map(({ choice }) => choice).sort()).toEqual([...choices].sort());
     }
@@ -51,5 +66,22 @@ describe('audio choice candidates', () => {
       { label: '低音', choice: '低音' },
       { label: '高音', choice: '高音' },
     ]);
+  });
+
+  it('rejects audio choice configs with more than three candidates', () => {
+    const step: LessonStep = {
+      id: 'too-many-audio-candidates',
+      type: 'choice',
+      prompt: 'Compare candidates.',
+      skillIds: ['pitch'],
+      config: {
+        choices: ['一', '二', '三', '四'],
+        answer: '一',
+        audioOptions: { 一: ['C4'], 二: ['D4'], 三: ['E4'], 四: ['F4'] },
+      },
+      feedback: {},
+    };
+
+    expect(() => getAudioChoiceCandidates(step)).toThrow(/at most 3/i);
   });
 });

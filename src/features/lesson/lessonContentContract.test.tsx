@@ -22,6 +22,7 @@ it('gives every authored audio choice an explicit answer represented by its cand
     expect(step.config, step.id).toHaveProperty('answer');
     expect(step.config.choices, step.id).toContain(step.config.answer);
     expect(step.config.audioOptions, step.id).toHaveProperty(String(step.config.answer));
+    expect((step.config.choices as unknown[]).length, step.id).toBeLessThanOrEqual(3);
   }
 });
 

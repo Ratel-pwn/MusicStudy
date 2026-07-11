@@ -19,6 +19,9 @@ export function getAudioChoiceCandidates(step: LessonStep): AudioChoiceCandidate
   if (step.config.audioOptions === undefined) {
     return choices.map((choice) => ({ label: String(choice), choice }));
   }
+  if (choices.length > 3) {
+    throw new RangeError('Audio choices support at most 3 candidates.');
+  }
 
   return choices
     .map((choice, authoredIndex) => ({
