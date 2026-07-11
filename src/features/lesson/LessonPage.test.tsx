@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, vi } from 'vitest';
 import type { Lesson } from '../../content/schema';
+import { pitchHighLowLesson } from '../../content/lessons/pitch-high-low';
 import { scaleCMajorLesson } from '../../content/lessons/scale-c-major';
 import { createLessonSession } from './lessonEngine';
 import { LessonPage } from './LessonPage';
@@ -93,7 +94,7 @@ it('gives listening steps a clear continuation without presenting an empty answe
     id: 'guided-listening-test',
     steps: [
       { id: 'listen-first', type: 'listen', prompt: '先听两枚音', skillIds: ['pitch'], config: { sequence: ['C4', 'G4'] }, feedback: {} },
-      { id: 'observe-next', type: 'explain', prompt: '观察音高轨迹', skillIds: ['pitch'], config: {}, feedback: {} },
+      pitchHighLowLesson.steps.find((step) => step.id === 'high-low-see')!,
     ],
   };
   render(<LessonPage lesson={guidedLesson} onExit={vi.fn()} />);
@@ -106,7 +107,8 @@ it('gives listening steps a clear continuation without presenting an empty answe
   expect(screen.getByRole('button', { name: '继续课程' })).toBeEnabled();
   await user.click(screen.getByRole('button', { name: '继续课程' }));
 
-  expect(screen.getByText('观察音高轨迹')).toBeInTheDocument();
+  expect(screen.getByText(/观察竖直音高轨迹/)).toBeInTheDocument();
+  expect(screen.getByRole('img', { name: '音高由低向高移动的竖直轨迹' })).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(screen.getByText('观察讲解 · 无需选择')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '确认理解后继续' })).toBeDisabled();

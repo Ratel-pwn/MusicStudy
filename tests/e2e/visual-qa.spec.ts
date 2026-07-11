@@ -23,6 +23,8 @@ test('1024×768 核心界面与减少动效验收', async ({ page }, testInfo) =
   await expect(page.getByText('聆听示范 · 无需选择')).toBeVisible();
   await page.getByRole('button', { name: '播放示范' }).click();
   await expect(page.getByRole('button', { name: '继续课程' })).toBeEnabled();
+  await page.getByRole('button', { name: '继续课程' }).click();
+  await expect(page.getByRole('img', { name: '音高由低向高移动的竖直轨迹' })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.goto('/studio/tablet-qa');

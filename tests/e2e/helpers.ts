@@ -47,6 +47,7 @@ export async function continueGuidedStep(page: Page) {
 export async function completeHighLowLesson(page: Page) {
   await page.getByRole('button', { name: '播放示范' }).click();
   await continueGuidedStep(page);
+  await expect(page.getByRole('img', { name: '音高由低向高移动的竖直轨迹' })).toBeVisible();
   await page.getByRole('button', { name: '我看清了' }).click();
   await continueGuidedStep(page);
   await page.getByRole('button', { name: 'C3' }).click();

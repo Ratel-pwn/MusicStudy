@@ -6,6 +6,7 @@ import type { NoteName } from '../../domain/music/types';
 import { parseNote } from '../../domain/music/pitch';
 import { useProgressStore } from '../../stores/useProgressStore';
 import { ChordBuilder } from './components/ChordBuilder';
+import { ExplainVisual } from './components/ExplainVisual';
 import { FeedbackSheet } from './components/FeedbackSheet';
 import { PianoKeyboard } from './components/PianoKeyboard';
 import { RhythmGrid, type RhythmValue } from './components/RhythmGrid';
@@ -209,11 +210,14 @@ function StudioTransferStep({ step, setAnswer }: StepProps) {
   );
 }
 
-function ExplainStep({ setAnswer }: StepProps) {
+function ExplainStep({ step, setAnswer }: StepProps) {
   return (
-    <button className="mx-auto block rounded-full border-2 border-[#102a43] bg-[#fffaf0] px-7 py-4 font-bold text-[#102a43]" onClick={() => setAnswer(true)} type="button">
-      我看清了
-    </button>
+    <div className="mx-auto w-full max-w-4xl">
+      <ExplainVisual step={step} />
+      <button className="mx-auto mt-8 block rounded-full border-2 border-[#102a43] bg-[#fffaf0] px-7 py-4 font-bold text-[#102a43] transition-transform duration-200 hover:-translate-y-1" onClick={() => setAnswer(true)} type="button">
+        我看清了
+      </button>
+    </div>
   );
 }
 
