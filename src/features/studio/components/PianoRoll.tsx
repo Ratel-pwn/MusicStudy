@@ -1,6 +1,6 @@
 import { ArrowsOutLineHorizontal, Trash } from '@phosphor-icons/react';
 import { useStore } from 'zustand';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { TrackKind } from '../../../domain/music/types';
 import type { StudioState } from '../studioStore';
@@ -8,6 +8,15 @@ import type { StudioState } from '../studioStore';
 const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const pitchLabel = (midi: number) => `${NOTE_NAMES[midi % 12]}${Math.floor(midi / 12) - 1}`;
 const TRACK_LABELS: Record<'bass' | 'melody', string> = { bass: '贝斯', melody: '旋律' };
+const MIN_ROLL_MIDI = 48;
+const MAX_ROLL_MIDI = 72;
+
+function pitchFromClick(event: MouseEvent<HTMLButtonElement>, fallback: number) {
+  const { top, height } = event.currentTarget.getBoundingClientRect();
+  if (height <= 0) return fallback;
+  const verticalPosition = Math.max(0, Math.min(1, (event.clientY - top) / height));
+  return MAX_ROLL_MIDI - Math.round(verticalPosition * (MAX_ROLL_MIDI - MIN_ROLL_MIDI));
+}
 
 type PianoRollProps = {
   store: StoreApi<StudioState>;
@@ -52,8 +61,8 @@ export function PianoRoll({ store, track }: PianoRollProps) {
             <button
               aria-label={`在第 ${beat + 1} 拍添加${TRACK_LABELS[track]}音符`}
               key={beat}
-              onClick={() => addNote(track, {
-                midi: track === 'bass' ? 48 : 60,
+              onClick={(event) => addNote(track, {
+                midi: pitchFromClick(event, track === 'bass' ? 48 : 60),
                 startBeat: beat,
                 durationBeats: 1,
                 velocity: 0.8,
@@ -75,7 +84,7 @@ export function PianoRoll({ store, track }: PianoRollProps) {
               minHeight: '2.75rem',
               minWidth: '2.75rem',
               width: `${Math.max((note.durationBeats / 32) * 100, 0.78)}%`,
-              top: `clamp(0px, calc(${Math.max(4, Math.min(82, 82 - (note.midi - 36) * 2.1))}% - 1.375rem), calc(100% - 2.75rem))`,
+              top: `clamp(0px, calc(${((MAX_ROLL_MIDI - Math.max(MIN_ROLL_MIDI, Math.min(MAX_ROLL_MIDI, note.midi))) / (MAX_ROLL_MIDI - MIN_ROLL_MIDI)) * 100}% - 1.375rem), calc(100% - 2.75rem))`,
             }}
             type="button"
           >

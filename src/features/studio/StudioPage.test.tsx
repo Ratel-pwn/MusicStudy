@@ -102,6 +102,24 @@ describe('studio editors', () => {
   });
 
   it.each([
+    ['bass', 48, 72, 298],
+    ['melody', 72, 48, 102],
+  ] as const)('maps vertical clicks to different %s pitches', (track, expectedFirst, expectedSecond, clientY) => {
+    const store = createStudioStore(composition());
+    render(<PianoRoll store={store} track={track} />);
+    const first = screen.getByRole('button', { name: `在第 1 拍添加${track === 'bass' ? '贝斯' : '旋律'}音符` });
+    const second = screen.getByRole('button', { name: `在第 2 拍添加${track === 'bass' ? '贝斯' : '旋律'}音符` });
+    const rect = { top: 100, bottom: 300, height: 200, left: 0, right: 44, width: 44, x: 0, y: 100, toJSON: () => ({}) };
+    vi.spyOn(first, 'getBoundingClientRect').mockReturnValue(rect);
+    vi.spyOn(second, 'getBoundingClientRect').mockReturnValue(rect);
+
+    fireEvent.click(first, { clientY });
+    fireEvent.click(second, { clientY: 400 - clientY });
+
+    expect(store.getState().composition.tracks[track].map((note) => note.midi)).toEqual([expectedFirst, expectedSecond]);
+  });
+
+  it.each([
     ['C', 60],
     ['F', 65],
     ['G', 67],
