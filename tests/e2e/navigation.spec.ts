@@ -33,3 +33,37 @@ test('群岛标题位于导航下方且页面没有地图产生的纵向滚动',
   expect(geometry.headingTop).toBeGreaterThanOrEqual(geometry.navigationBottom + 16);
   expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.viewportHeight);
 });
+
+test('手机底部导航保留五个点击目标和操作安全空间', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', '该几何关系只在手机项目验证');
+  await resetApp(page, '/practice');
+  const geometry = await page.evaluate(() => {
+    const navigation = document.querySelector('.shell-navigation')!.getBoundingClientRect();
+    const main = document.querySelector('main')!;
+    const links = Array.from(document.querySelectorAll('.shell-destinations a'));
+    return {
+      navigationHeight: navigation.height,
+      mainPaddingBottom: Number.parseFloat(getComputedStyle(main).paddingBottom),
+      linkCount: links.length,
+      smallestWidth: Math.min(...links.map((link) => link.getBoundingClientRect().width)),
+      smallestHeight: Math.min(...links.map((link) => link.getBoundingClientRect().height)),
+    };
+  });
+  expect(geometry.linkCount).toBe(5);
+  expect(geometry.smallestWidth).toBeGreaterThanOrEqual(44);
+  expect(geometry.smallestHeight).toBeGreaterThanOrEqual(44);
+  expect(geometry.mainPaddingBottom).toBeGreaterThanOrEqual(geometry.navigationHeight + 24);
+});
+
+test('手机群岛地图不落入底部导航下方', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', '该几何关系只在手机项目验证');
+  await resetApp(page, '/map');
+  const geometry = await page.evaluate(() => {
+    const navigation = document.querySelector('.shell-navigation')!.getBoundingClientRect();
+    const viewport = document.querySelector('.archipelago-viewport')!.getBoundingClientRect();
+    const legend = document.querySelector('.map-legend')!.getBoundingClientRect();
+    return { navigationTop: navigation.top, viewportBottom: viewport.bottom, legendBottom: legend.bottom };
+  });
+  expect(geometry.viewportBottom).toBeLessThanOrEqual(geometry.navigationTop);
+  expect(geometry.legendBottom).toBeLessThanOrEqual(geometry.navigationTop - 8);
+});

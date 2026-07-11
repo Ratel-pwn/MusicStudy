@@ -491,12 +491,15 @@ a {
 }
 
 @media (max-width: 768px) {
+  .app-shell { --mobile-shell-safe-bottom: calc(7rem + env(safe-area-inset-bottom)); }
   .shell-navigation { top: auto; bottom: max(0.65rem, env(safe-area-inset-bottom)); width: calc(100% - 1rem); padding: 0.35rem; border-radius: 1rem; }
+  .app-shell[data-shell-mode='海图边缘'] .shell-navigation { top: auto; bottom: max(0.65rem, env(safe-area-inset-bottom)); width: calc(100% - 1rem); border-radius: 1rem; }
   .shell-mark { display: none; }
   .shell-destinations { width: 100%; justify-content: space-around; }
   .shell-destinations a { min-width: 2.9rem; flex-direction: column; gap: 0.1rem; padding: 0.35rem; font-size: 0.68rem; }
   .app-shell > main,
-  .app-shell[data-shell-mode='创作运输'] > main { padding-top: 0; padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+  .app-shell[data-shell-mode='创作运输'] > main { padding-top: 0; padding-bottom: var(--mobile-shell-safe-bottom); }
+  .app-shell[data-shell-mode='海图边缘'] > main { --map-shell-safe-top: 0px; height: 100dvh; min-height: 0; padding: 0 0 var(--mobile-shell-safe-bottom); }
   .sound-gate { min-height: auto; grid-template-columns: 1fr; padding: 5rem 0 8rem; }
   .sound-gate h1,
   .returning-horizon h1 { font-size: clamp(2.8rem, 15vw, 5rem); }

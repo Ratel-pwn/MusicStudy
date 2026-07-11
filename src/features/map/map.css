@@ -309,7 +309,8 @@
   .map-heading { top: 1rem; }
   .map-heading h1 { font-size: 3rem; }
   .map-heading span { max-width: 17rem; }
-  .map-legend { top: auto; right: 1rem; bottom: 1rem; left: 1rem; justify-content: space-around; }
+  .map-legend { top: auto; right: 1rem; bottom: calc(var(--mobile-shell-safe-bottom) + 0.5rem); left: 1rem; justify-content: space-around; }
+  .archipelago-viewport { height: calc(100dvh - var(--mobile-shell-safe-bottom)); min-height: 0; }
   .archipelago-chart { --map-scale: 0.78; }
 }
 
