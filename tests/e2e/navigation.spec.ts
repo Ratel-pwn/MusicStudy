@@ -20,6 +20,8 @@ test('普通页面共享稳定导航并区分当前项与悬停项', async ({ pa
 test('群岛标题位于导航下方且页面没有地图产生的纵向滚动', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === 'mobile', '手机地图安全区在独立用例验证');
   await resetApp(page, '/map');
+  await expect(page.getByRole('navigation', { name: '拾音岛主导航' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '音乐群岛', exact: true })).toBeVisible();
   const geometry = await page.evaluate(() => {
     const navigation = document.querySelector('.shell-navigation')!.getBoundingClientRect();
     const heading = document.querySelector('.map-heading')!.getBoundingClientRect();
@@ -58,6 +60,8 @@ test('手机底部导航保留五个点击目标和操作安全空间', async ({
 test('手机群岛地图不落入底部导航下方', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', '该几何关系只在手机项目验证');
   await resetApp(page, '/map');
+  await expect(page.getByRole('navigation', { name: '拾音岛主导航' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '音乐群岛', exact: true })).toBeVisible();
   const geometry = await page.evaluate(() => {
     const navigation = document.querySelector('.shell-navigation')!.getBoundingClientRect();
     const viewport = document.querySelector('.archipelago-viewport')!.getBoundingClientRect();
