@@ -133,15 +133,21 @@ function EighthSubdivisionVisual({ syllables }: { syllables: string[] }) {
 
 function ScaleSemitoneVisual({ pairs }: { pairs: string[][] }) {
   const notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'];
-  const highlightedNotes = new Set(pairs.flat());
+  const pairStarts = new Set<number>();
+  for (const [left, right] of pairs) {
+    notes.forEach((note, index) => {
+      if (note === left && notes[index + 1] === right) pairStarts.add(index);
+    });
+  }
+  const highlightedIndexes = new Set([...pairStarts].flatMap((index) => [index, index + 1]));
   return (
     <VisualFrame footer="白键相邻并不总是全音，E–F 与 B–C 只有半音" label="C 大调与两组半音位置">
       <div className="flex min-h-52 flex-col justify-center">
         <div className="grid grid-flow-dense grid-cols-8 overflow-hidden rounded-2xl border-2 border-[#102a43]">
           {notes.map((note, index) => (
-            <div className={`${highlightedNotes.has(note) ? 'bg-[#e7c55f]' : 'bg-[#fffaf0]'} relative grid min-h-32 place-items-center border-r border-[#102a43]/30 last:border-r-0`} key={`${note}-${index}`}>
+            <div className={`${highlightedIndexes.has(index) ? 'bg-[#e7c55f]' : 'bg-[#fffaf0]'} relative grid min-h-32 place-items-center border-r border-[#102a43]/30 last:border-r-0`} data-testid={highlightedIndexes.has(index) ? 'semitone-key' : undefined} key={`${note}-${index}`}>
               <strong className="font-serif text-3xl">{note}</strong>
-              {pairs.some((pair) => pair[0] === note) && <span className="absolute right-1 top-2 z-10 rounded-full bg-[#ef765d] px-2 py-1 text-[10px] font-bold text-white">半音</span>}
+              {pairStarts.has(index) && <span className="absolute right-1 top-2 z-10 rounded-full bg-[#ef765d] px-2 py-1 text-[10px] font-bold text-white">半音</span>}
             </div>
           ))}
         </div>

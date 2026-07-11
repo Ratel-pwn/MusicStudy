@@ -66,3 +66,10 @@ it('uses the generic diagram when a recognized configuration is empty', () => {
 
   expect(screen.getByRole('img', { name: '音乐概念示意图' })).toBeInTheDocument();
 });
+
+it('highlights only the adjacent E-F and final B-C semitone positions', () => {
+  const step = explainSteps.find((item) => item.id === 'c-scale-see')!;
+  render(<ExplainVisual step={step} />);
+
+  expect(screen.getAllByTestId('semitone-key').map((key) => key.textContent?.replace('半音', ''))).toEqual(['E', 'F', 'B', 'C']);
+});
